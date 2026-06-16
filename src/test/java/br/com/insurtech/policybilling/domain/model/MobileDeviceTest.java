@@ -32,6 +32,21 @@ class MobileDeviceTest {
     }
 
     @Test
+    @DisplayName("should trim textual fields when creating mobile device")
+    void shouldTrimTextualFieldsWhenCreatingMobileDevice() {
+        MobileDevice device = new MobileDevice(
+                " Manufacturer ",
+                " Model X ",
+                " 356789012345678 ",
+                new BigDecimal("1.00")
+        );
+
+        assertThat(device.brand()).isEqualTo("Manufacturer");
+        assertThat(device.model()).isEqualTo("Model X");
+        assertThat(device.imei()).isEqualTo("356789012345678");
+    }
+
+    @Test
     @DisplayName("should throw DomainException when brand is null")
     void shouldThrowExceptionWhenBrandIsNull() {
         assertThatThrownBy(() -> new MobileDevice(
@@ -107,6 +122,32 @@ class MobileDeviceTest {
         ))
                 .isInstanceOf(DomainException.class)
                 .hasMessage("imei must not be blank");
+    }
+
+    @Test
+    @DisplayName("should throw DomainException when imei has less than 15 digits")
+    void shouldThrowExceptionWhenImeiHasLessThanFifteenDigits() {
+        assertThatThrownBy(() -> new MobileDevice(
+                "Manufacturer",
+                "Model X",
+                "35678901234567",
+                new BigDecimal("1.00")
+        ))
+                .isInstanceOf(DomainException.class)
+                .hasMessage("imei must contain exactly 15 digits");
+    }
+
+    @Test
+    @DisplayName("should throw DomainException when imei contains non digit characters")
+    void shouldThrowExceptionWhenImeiContainsNonDigitCharacters() {
+        assertThatThrownBy(() -> new MobileDevice(
+                "Manufacturer",
+                "Model X",
+                "35678901234567A",
+                new BigDecimal("1.00")
+        ))
+                .isInstanceOf(DomainException.class)
+                .hasMessage("imei must contain exactly 15 digits");
     }
 
     @Test

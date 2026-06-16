@@ -1,9 +1,9 @@
 package br.com.insurtech.policybilling.application.usecase;
 
+import br.com.insurtech.policybilling.application.port.in.CreatePolicyCommand;
 import br.com.insurtech.policybilling.application.port.out.PolicyRepositoryPort;
 import br.com.insurtech.policybilling.domain.exception.DomainException;
 import br.com.insurtech.policybilling.domain.model.CoverageType;
-import br.com.insurtech.policybilling.domain.model.MobileDevice;
 import br.com.insurtech.policybilling.domain.model.Policy;
 import br.com.insurtech.policybilling.domain.model.PolicyStatus;
 import org.junit.jupiter.api.DisplayName;
@@ -33,36 +33,65 @@ class CreatePolicyUseCaseImplTest {
     private CreatePolicyUseCaseImpl createPolicyUseCase;
 
     @Test
-    @DisplayName("should create policy successfully")
+    @DisplayName("should issue active policy successfully")
     void shouldCreatePolicySuccessfully() {
-        Policy validPolicy = buildValidPolicy();
-        when(policyRepositoryPort.save(any(Policy.class))).thenReturn(validPolicy);
+        CreatePolicyCommand command = buildValidCommand();
+        when(policyRepositoryPort.save(any(Policy.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Policy result = createPolicyUseCase.execute(validPolicy);
+        Policy result = createPolicyUseCase.execute(command);
 
-        assertThat(result).isSameAs(validPolicy);
-        verify(policyRepositoryPort).save(validPolicy);
+        assertThat(result.id()).isNotNull();
+        assertThat(result.customerId()).isEqualTo(command.customerId());
+        assertThat(result.device().brand()).isEqualTo(command.deviceBrand());
+        assertThat(result.device().model()).isEqualTo(command.deviceModel());
+        assertThat(result.device().imei()).isEqualTo(command.deviceImei());
+        assertThat(result.device().invoiceValue()).isEqualByComparingTo(command.deviceInvoiceValue());
+        assertThat(result.coverage()).isEqualTo(CoverageType.NEW_DEVICE_REPLACEMENT);
+        assertThat(result.monthlyPremium()).isEqualByComparingTo(command.monthlyPremium());
+        assertThat(result.dueDay()).isEqualTo(command.dueDay());
+        assertThat(result.status()).isEqualTo(PolicyStatus.ACTIVE);
+        verify(policyRepositoryPort).save(result);
     }
 
     @Test
-    @DisplayName("should throw exception when policy is null")
-    void shouldThrowExceptionWhenPolicyIsNull() {
+    @DisplayName("should throw exception when command is null")
+    void shouldThrowExceptionWhenCommandIsNull() {
         assertThatThrownBy(() -> createPolicyUseCase.execute(null))
                 .isInstanceOf(DomainException.class)
-                .hasMessage("policy must not be null");
+                .hasMessage("create policy command must not be null");
 
         verifyNoInteractions(policyRepositoryPort);
     }
 
-    private static Policy buildValidPolicy() {
-        return new Policy(
+    @Test
+    @DisplayName("should not save policy when command violates domain rules")
+    void shouldNotSavePolicyWhenCommandViolatesDomainRules() {
+        CreatePolicyCommand invalidCommand = new CreatePolicyCommand(
                 UUID.randomUUID(),
-                UUID.randomUUID(),
-                new MobileDevice("Brand", "Model", "123456789012345", new BigDecimal("499.90")),
-                CoverageType.NEW_DEVICE_REPLACEMENT,
+                "Brand",
+                "Model",
+                "123456789012345",
+                new BigDecimal("499.90"),
                 new BigDecimal("99.90"),
-                10,
-                PolicyStatus.ACTIVE
+                29
+        );
+
+        assertThatThrownBy(() -> createPolicyUseCase.execute(invalidCommand))
+                .isInstanceOf(DomainException.class)
+                .hasMessage("dueDay must be between 1 and 28");
+
+        verifyNoInteractions(policyRepositoryPort);
+    }
+
+    private static CreatePolicyCommand buildValidCommand() {
+        return new CreatePolicyCommand(
+                UUID.randomUUID(),
+                "Brand",
+                "Model",
+                "123456789012345",
+                new BigDecimal("499.90"),
+                new BigDecimal("99.90"),
+                10
         );
     }
 
