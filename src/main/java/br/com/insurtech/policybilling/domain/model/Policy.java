@@ -17,6 +17,24 @@ public final class Policy {
     private final int dueDay;
     private PolicyStatus status;
 
+    public static Policy issue(
+            UUID id,
+            UUID customerId,
+            MobileDevice device,
+            BigDecimal monthlyPremium,
+            int dueDay
+    ) {
+        return new Policy(
+                id,
+                customerId,
+                device,
+                CoverageType.NEW_DEVICE_REPLACEMENT,
+                monthlyPremium,
+                dueDay,
+                PolicyStatus.ACTIVE
+        );
+    }
+
     public Policy(
             UUID id,
             UUID customerId,
@@ -40,6 +58,13 @@ public final class Policy {
             throw new DomainException("Canceled policies cannot be marked as pending payment");
         }
         this.status = PolicyStatus.PENDING_PAYMENT;
+    }
+
+    public void confirmPayment() {
+        if (status == PolicyStatus.CANCELED) {
+            throw new DomainException("Canceled policies cannot be activated after payment confirmation");
+        }
+        this.status = PolicyStatus.ACTIVE;
     }
 
     public void cancel() {

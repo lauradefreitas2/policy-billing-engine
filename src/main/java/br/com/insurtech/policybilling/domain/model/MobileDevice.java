@@ -12,29 +12,34 @@ public record MobileDevice(
 ) {
 
     public MobileDevice {
-        validateNonNull(brand, "brand");
-        validateNonNull(model, "model");
-        validateNonNull(imei, "imei");
-        validateNonNull(invoiceValue, "invoiceValue");
+        brand = normalizeRequiredText(brand, "brand");
+        model = normalizeRequiredText(model, "model");
+        imei = normalizeRequiredText(imei, "imei");
+        invoiceValue = validateInvoiceValue(invoiceValue);
 
-        if (brand.isBlank()) {
-            throw new DomainException("brand must not be blank");
+        if (!imei.matches("\\d{15}")) {
+            throw new DomainException("imei must contain exactly 15 digits");
         }
-        if (model.isBlank()) {
-            throw new DomainException("model must not be blank");
+    }
+
+    private static String normalizeRequiredText(String value, String name) {
+        if (value == null) {
+            throw new DomainException(name + " must not be null");
         }
-        if (imei.isBlank()) {
-            throw new DomainException("imei must not be blank");
+        String normalized = value.trim();
+        if (normalized.isBlank()) {
+            throw new DomainException(name + " must not be blank");
+        }
+        return normalized;
+    }
+
+    private static BigDecimal validateInvoiceValue(BigDecimal invoiceValue) {
+        if (invoiceValue == null) {
+            throw new DomainException("invoiceValue must not be null");
         }
         if (invoiceValue.signum() <= 0) {
             throw new DomainException("invoiceValue must be positive");
         }
-    }
-
-    private static <T> T validateNonNull(T value, String name) {
-        if (value == null) {
-            throw new DomainException(name + " must not be null");
-        }
-        return value;
+        return invoiceValue;
     }
 }

@@ -32,6 +32,24 @@ class PolicyTest {
     }
 
     @Test
+    @DisplayName("should issue policy with default mobile insurance rules")
+    void shouldIssuePolicyWithDefaultMobileInsuranceRules() {
+        UUID id = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        MobileDevice device = new MobileDevice("TestBrand", "TestModel", "123456789012345", new BigDecimal("399.99"));
+
+        Policy policy = Policy.issue(id, customerId, device, new BigDecimal("99.90"), 10);
+
+        assertThat(policy.id()).isEqualTo(id);
+        assertThat(policy.customerId()).isEqualTo(customerId);
+        assertThat(policy.device()).isEqualTo(device);
+        assertThat(policy.coverage()).isEqualTo(CoverageType.NEW_DEVICE_REPLACEMENT);
+        assertThat(policy.status()).isEqualTo(PolicyStatus.ACTIVE);
+        assertThat(policy.monthlyPremium()).isEqualByComparingTo("99.90");
+        assertThat(policy.dueDay()).isEqualTo(10);
+    }
+
+    @Test
     @DisplayName("should create policy when due day is at lower boundary")
     void shouldCreatePolicyWhenDueDayAtLowerBoundary() {
         Policy policy = createValidPolicy(1, PolicyStatus.ACTIVE);
@@ -101,6 +119,36 @@ class PolicyTest {
     }
 
     @Test
+    @DisplayName("should activate pending policy after payment confirmation")
+    void shouldActivatePendingPolicyAfterPaymentConfirmation() {
+        Policy policy = createValidPolicy(10, PolicyStatus.PENDING_PAYMENT);
+
+        policy.confirmPayment();
+
+        assertThat(policy.status()).isEqualTo(PolicyStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("should keep active policy active after payment confirmation")
+    void shouldKeepActivePolicyActiveAfterPaymentConfirmation() {
+        Policy policy = createValidPolicy(10, PolicyStatus.ACTIVE);
+
+        policy.confirmPayment();
+
+        assertThat(policy.status()).isEqualTo(PolicyStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("should not activate canceled policy after payment confirmation")
+    void shouldNotActivateCanceledPolicyAfterPaymentConfirmation() {
+        Policy policy = createValidPolicy(10, PolicyStatus.CANCELED);
+
+        assertThatThrownBy(policy::confirmPayment)
+                .isInstanceOf(DomainException.class)
+                .hasMessage("Canceled policies cannot be activated after payment confirmation");
+    }
+
+    @Test
     @DisplayName("should not mark canceled policy as pending payment")
     void shouldNotMarkCanceledPolicyAsPendingPayment() {
         Policy policy = createValidPolicy(10, PolicyStatus.CANCELED);
@@ -125,6 +173,17 @@ class PolicyTest {
     void shouldCancelPolicyFromPendingPayment() {
         Policy policy = createValidPolicy(20, PolicyStatus.PENDING_PAYMENT);
 
+        policy.cancel();
+
+        assertThat(policy.status()).isEqualTo(PolicyStatus.CANCELED);
+    }
+
+    @Test
+    @DisplayName("should be idempotent when canceling already canceled policy")
+    void shouldBeIdempotentWhenCancelingAlreadyCanceledPolicy() {
+        Policy policy = createValidPolicy(20, PolicyStatus.CANCELED);
+
+        policy.cancel();
         policy.cancel();
 
         assertThat(policy.status()).isEqualTo(PolicyStatus.CANCELED);
