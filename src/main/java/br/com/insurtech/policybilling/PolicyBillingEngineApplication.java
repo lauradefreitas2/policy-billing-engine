@@ -1,4 +1,4 @@
-package br.com.insurtech.policy_billing_engine;
+package br.com.insurtech.policybilling;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
