@@ -1,227 +1,158 @@
-# Policy Billing Engine 🚀
+# 🚀 Policy Billing Engine
 
 O **Policy Billing Engine** é o motor transacional e de faturamento automático de apólices de uma **Insurtech** focada em seguros para dispositivos móveis.
 
-O sistema foi projetado com base nos princípios de **Arquitetura Hexagonal (Ports & Adapters)** e **Domain-Driven Design (DDD)**, garantindo uma aplicação desacoplada de frameworks, altamente testável, manutenível e extensível.
+O sistema foi projetado utilizando **Arquitetura Hexagonal (Ports & Adapters)** e **Domain-Driven Design (DDD)**, garantindo uma aplicação desacoplada de frameworks, altamente testável, manutenível e extensível.
 
 ---
 
-## 🌟 Diferenciais de Negócio e Funcionalidades
+## 🌟 Funcionalidades
 
-O motor foi construído para suportar um modelo moderno de seguros por assinatura:
+### 💳 Cobrança Inteligente por Assinatura
 
-1. **Cobrança Inteligente por Assinatura**
+* Processamento automático de cobranças recorrentes mensais (`monthlyPremium`);
+* Controle de vencimento através do campo `dueDay`;
+* Otimização do fluxo de caixa da operação.
 
-   * Em vez de comprometer o limite total do cartão de crédito com o valor anual do seguro, o sistema realiza cobranças recorrentes mensais (`monthlyPremium`) em um dia fixo de vencimento (`dueDay`).
+### 📱 Cobertura Premium
 
-2. **Cobertura Premium (`NEW_DEVICE_REPLACEMENT`)**
+Suporte à cobertura **NEW_DEVICE_REPLACEMENT**, permitindo a substituição do dispositivo segurado por um novo em caso de sinistro.
 
-   * Em caso de sinistro, a indenização garante a substituição por um dispositivo novo, eliminando a necessidade de aparelhos recondicionados ou processos de manutenção prolongados.
+### 🔄 Ciclo de Vida Automatizado
 
-3. **Ciclo de Vida Automatizado**
+Gerenciamento automático dos estados da apólice:
 
-   * Gerenciamento automático dos estados da apólice (`ACTIVE`, `PENDING_PAYMENT`, `SUSPENDED`, `CANCELLED`) através de processamento agendado.
+* `ACTIVE`
+* `PENDING_PAYMENT`
+* `SUSPENDED`
+* `CANCELLED`
+
+As transições são executadas por processos automatizados de alta confiabilidade.
 
 ---
 
-## 🏗️ Arquitetura do Sistema
+## 🏗️ Arquitetura
 
-A aplicação adota a **Arquitetura Hexagonal**, isolando as regras de negócio dos detalhes de infraestrutura.
+A aplicação segue o padrão **Hexagonal Architecture**, isolando completamente o domínio das tecnologias externas.
 
 ### Camadas
 
-### `domain` (Core)
+#### Domain (Core)
 
-Contém:
+Responsável pelas regras de negócio:
 
-* Modelos ricos de domínio (`Policy`, `MobileDevice`)
-* Enums (`PolicyStatus`, `CoverageType`)
-* Regras de negócio
-* Validações de domínio
-* Fábricas expressivas (`Policy.issue(...)`)
+* Entidades ricas (`Policy`, `MobileDevice`);
+* Enums;
+* Validações;
+* Regras de domínio.
 
-A camada possui **zero dependências de frameworks**.
+> Não possui dependência de frameworks.
 
-### `application` (Ports & Use Cases)
+#### Application (Ports & Use Cases)
 
-#### Inbound Ports
-
-Interfaces que definem os casos de uso da aplicação:
+Responsável pela orquestração dos casos de uso:
 
 * `CreatePolicyUseCase`
 * `ProcessDailyBillingUseCase`
 
-#### Outbound Ports
+Além das portas de entrada e saída da aplicação.
 
-Interfaces que representam dependências externas:
+#### Infrastructure (Adapters)
 
-* `PolicyRepositoryPort`
+Responsável pelos detalhes técnicos:
 
-#### Use Cases
-
-Implementações da lógica de aplicação:
-
-* `CreatePolicyUseCaseImpl`
-* `CreatePolicyCommand`
-
-### `infrastructure` (Adapters & Config)
-
-#### Inbound Adapters
-
-* API REST (`PolicyController`, `PolicyApi`)
-* Agendamentos com Quartz (`BillingJob`)
-
-#### Outbound Adapters
-
-* Persistência JPA (`PolicyPersistenceAdapter`)
-* Mapeamento entre domínio e banco (`PolicyMapper`)
-
-#### Configurações
-
-* `SecurityConfig`
-* `OpenApiConfig`
-* `UseCaseConfig`
+* API REST;
+* Persistência JPA;
+* Quartz Scheduler;
+* Configurações da aplicação.
 
 ---
 
-## 🛠️ Tecnologias Utilizadas
+## 🛠️ Tecnologias
 
-* Java 17 / 21+
-* Spring Boot 3.4+
-* Spring Web
-* Spring Data JPA
-* Spring Security
-* PostgreSQL 16
-* Docker & Docker Compose
-* Springdoc OpenAPI
-* Quartz Scheduler
-* Jakarta Validation
-* JUnit 5
-* Mockito
+| Tecnologia        | Versão    |
+| ----------------- | --------- |
+| Java              | 21        |
+| Spring Boot       | 3.4+      |
+| PostgreSQL        | 16        |
+| Quartz Scheduler  | Latest    |
+| Swagger / OpenAPI | Springdoc |
+| JUnit 5           | Latest    |
+| Mockito           | Latest    |
+| Docker            | Latest    |
+| Docker Compose    | Latest    |
 
 ---
 
-## 📁 Estrutura de Pastas
+## 📂 Estrutura do Projeto
 
 ```text
 src/main/java/br/com/insurtech/policybilling/
-├── PolicyBillingEngineApplication.java
-│
-├── domain/
-│   ├── exception/
-│   └── model/
-│
-├── application/
-│   ├── port/
-│   │   ├── in/
-│   │   └── out/
-│   └── usecase/
-│
-└── infrastructure/
-    ├── adapter/
-    │   ├── in/
-    │   │   ├── web/
-    │   │   └── scheduler/
-    │   └── out/
-    │       └── persistence/
-    └── config/
+├── domain/              # Modelos de negócio e regras puras
+├── application/         # Casos de uso e portas (In/Out)
+└── infrastructure/      # Adaptadores (Web, Scheduler, Persistence) e Config
 ```
 
 ---
 
-## 🔒 Tratamento de Erros (RFC 7807)
+## 🔒 Tratamento de Erros
 
-A API implementa o padrão **RFC 7807 (Problem Details for HTTP APIs)** utilizando a classe `ProblemDetail` do Spring Boot 3.
+A API implementa o padrão **RFC 7807 (Problem Details for HTTP APIs)**, fornecendo respostas padronizadas para:
 
-Erros de validação e regras de negócio retornam respostas padronizadas e previsíveis.
-
-### Exemplo
-
-```json
-{
-  "type": "about:blank",
-  "title": "Bad Request",
-  "status": 400,
-  "detail": "Validation failed",
-  "instance": "/api/v1/policies",
-  "invalid_params": [
-    {
-      "field": "deviceImei",
-      "message": "deve ter exatamente 15 dígitos"
-    }
-  ]
-}
-```
+* Erros de validação;
+* Violações de regras de negócio;
+* Recursos não encontrados;
+* Requisições inválidas.
 
 ---
 
-## 🚀 Como Executar o Projeto
+## 🚀 Como Executar
 
-### Pré-requisitos
-
-* Docker Desktop
-* Java JDK 17+
-
-### 1. Subir o PostgreSQL
-
-Na raiz do projeto:
+### 1. Subir o banco de dados
 
 ```bash
 docker compose up -d
 ```
 
-O comando irá:
-
-* Baixar a imagem do PostgreSQL
-* Criar o banco `policy_db`
-* Configurar usuário e senha
-* Criar volume persistente
-
-### 2. Executar a Aplicação
+### 2. Executar a aplicação
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-O Hibernate criará automaticamente as tabelas necessárias através do `ddl-auto=update`.
+### 3. Acessar a documentação da API
 
-### 3. Acessar o Swagger
-
-```
+```text
 http://localhost:8080/swagger-ui.html
 ```
 
-Utilize o botão **Try it out** para testar os endpoints.
-
 ---
 
-## 🧪 Executando os Testes
+## 🧪 Testes
 
-A suíte de testes cobre diferentes níveis da aplicação.
+O projeto possui testes em diferentes níveis:
 
 ### Testes Unitários
 
 Validam:
 
-* Regras de domínio
-* Casos de uso
-* Invariantes de negócio
+* Regras de domínio;
+* Entidades;
+* Casos de uso;
+* Serviços de aplicação.
+
+Utilizando:
+
+* JUnit 5
+* Mockito
 
 ### Testes Web
 
-Utilizam `@WebMvcTest` para validar:
-
-* Contratos HTTP
-* Validações Jakarta
-* Respostas RFC 7807
+Garantem os contratos da API REST.
 
 ### Testes de Arquitetura
 
-Garantem que:
-
-* O domínio não dependa do Spring
-* O domínio não dependa do Jakarta
-* O domínio permaneça isolado da infraestrutura
+Verificam o isolamento das camadas e a aderência à Arquitetura Hexagonal.
 
 ### Executar todos os testes
 
@@ -231,14 +162,25 @@ Garantem que:
 
 ---
 
-## 🛠️ Próximos Passos
+## 🛣️ Roadmap
 
-* [ ] Automação completa do faturamento com Quartz
-* [ ] Integração com gateway de pagamento
-* [ ] Notificações de cobrança
-* [ ] Métricas e observabilidade
-* [ ] Cobertura de testes ampliada
-* [ ] Integração via mensageria
+* [ ] Integração com gateway de pagamento real
+* [ ] Cancelamento automático por inadimplência
+* [ ] Observabilidade com Spring Boot Actuator
+* [ ] Testes de carga e performance
+* [ ] Integração via mensageria para notificações de cobrança
 
-```
-```
+---
+
+## 📌 Objetivo do Projeto
+
+Este projeto foi desenvolvido com foco em demonstrar boas práticas de desenvolvimento backend utilizando:
+
+* Arquitetura Hexagonal;
+* Domain-Driven Design (DDD);
+* Clean Architecture;
+* Testes automatizados;
+* APIs REST robustas;
+* Processamento assíncrono e agendado.
+
+A proposta simula um cenário real de uma Insurtech moderna, com regras de negócio voltadas para faturamento recorrente e gestão automatizada de apólices.
