@@ -12,6 +12,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -102,5 +103,57 @@ class PolicyPersistenceAdapterTest {
         Optional<Policy> result = adapter.findById(UUID.randomUUID());
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should find policies by due day and status")
+    void shouldFindPoliciesByDueDayAndStatus() {
+        PolicyEntity activeDuePolicy = new PolicyEntity(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "Apple",
+                "iPhone 15",
+                "123456789012345",
+                new BigDecimal("5999.90"),
+                "NEW_DEVICE_REPLACEMENT",
+                new BigDecimal("99.90"),
+                10,
+                "ACTIVE"
+        );
+        PolicyEntity pendingDuePolicy = new PolicyEntity(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "Samsung",
+                "Galaxy S26",
+                "543210987654321",
+                new BigDecimal("4499.90"),
+                "NEW_DEVICE_REPLACEMENT",
+                new BigDecimal("79.90"),
+                10,
+                "PENDING_PAYMENT"
+        );
+        PolicyEntity activeOtherDueDayPolicy = new PolicyEntity(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "Motorola",
+                "Edge",
+                "111222333444555",
+                new BigDecimal("2999.90"),
+                "NEW_DEVICE_REPLACEMENT",
+                new BigDecimal("59.90"),
+                11,
+                "ACTIVE"
+        );
+        repository.saveAllAndFlush(List.of(activeDuePolicy, pendingDuePolicy, activeOtherDueDayPolicy));
+
+        List<Policy> result = adapter.findByDueDayAndStatus(10, PolicyStatus.ACTIVE);
+
+        assertThat(result).hasSize(1);
+        Policy policy = result.getFirst();
+        assertThat(policy.id()).isEqualTo(activeDuePolicy.getId());
+        assertThat(policy.dueDay()).isEqualTo(10);
+        assertThat(policy.status()).isEqualTo(PolicyStatus.ACTIVE);
+        assertThat(policy.coverage()).isEqualTo(CoverageType.NEW_DEVICE_REPLACEMENT);
+        assertThat(policy.device().imei()).isEqualTo("123456789012345");
     }
 }
