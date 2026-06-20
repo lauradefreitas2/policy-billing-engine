@@ -14,4 +14,6 @@ public interface PolicyRepositoryPort {
     Optional<Policy> findById(UUID id);
 
     List<Policy> findByDueDayAndStatus(int dueDay, PolicyStatus status);
+
+    List<Policy> findByStatus(PolicyStatus status);
 }
