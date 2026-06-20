@@ -7,6 +7,8 @@ import br.com.insurtech.policybilling.application.port.out.PolicyRepositoryPort;
 import br.com.insurtech.policybilling.application.usecase.CancelOverduePoliciesUseCaseImpl;
 import br.com.insurtech.policybilling.application.usecase.CreatePolicyUseCaseImpl;
 import br.com.insurtech.policybilling.application.usecase.ProcessDailyBillingUseCaseImpl;
+import br.com.insurtech.policybilling.infrastructure.observability.ObservedCreatePolicyUseCase;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,8 +16,12 @@ import org.springframework.context.annotation.Configuration;
 public class UseCaseConfig {
 
     @Bean
-    public CreatePolicyUseCase createPolicyUseCase(PolicyRepositoryPort policyRepositoryPort) {
-        return new CreatePolicyUseCaseImpl(policyRepositoryPort);
+    public CreatePolicyUseCase createPolicyUseCase(
+            PolicyRepositoryPort policyRepositoryPort,
+            MeterRegistry meterRegistry
+    ) {
+        CreatePolicyUseCase createPolicyUseCase = new CreatePolicyUseCaseImpl(policyRepositoryPort);
+        return new ObservedCreatePolicyUseCase(createPolicyUseCase, meterRegistry);
     }
 
     @Bean

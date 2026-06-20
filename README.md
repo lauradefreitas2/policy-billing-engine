@@ -1,186 +1,221 @@
-# 🚀 Policy Billing Engine
+# Policy Billing Engine
 
-O **Policy Billing Engine** é o motor transacional e de faturamento automático de apólices de uma **Insurtech** focada em seguros para dispositivos móveis.
+O **Policy Billing Engine** é um serviço backend para uma Insurtech focada em seguros de dispositivos móveis. Ele gerencia emissão de apólices, regras de faturamento mensal recorrente, transições automáticas de cobrança, cancelamento por inadimplência, persistência e observabilidade operacional.
 
-O sistema foi projetado utilizando **Arquitetura Hexagonal (Ports & Adapters)** e **Domain-Driven Design (DDD)**, garantindo uma aplicação desacoplada de frameworks, altamente testável, manutenível e extensível.
+O projeto é construído com **Java 21** e **Spring Boot**, seguindo **Arquitetura Hexagonal (Ports & Adapters)**. O domínio permanece independente de Spring, JPA, Quartz, APIs web e ferramentas de observabilidade.
 
----
+## Funcionalidades Implementadas
 
-## 🌟 Funcionalidades
+### Emissão de Apólices
 
-### 💳 Cobrança Inteligente por Assinatura
+- Endpoint REST para criação de apólices de seguro mobile.
+- Validação de entrada com Jakarta Validation.
+- Respostas de erro padronizadas com `ProblemDetail`, seguindo o estilo RFC 7807.
+- Documentação da API via Swagger/OpenAPI com Springdoc.
 
-* Processamento automático de cobranças recorrentes mensais (`monthlyPremium`);
-* Controle de vencimento através do campo `dueDay`;
-* Otimização do fluxo de caixa da operação.
+### Regras de Domínio
 
-### 📱 Cobertura Premium
+- Modelo de domínio rico com `Policy`.
+- `MobileDevice` modelado como record com validações.
+- Cobertura suportada: `NEW_DEVICE_REPLACEMENT`.
+- Status suportados para apólice:
+  - `ACTIVE`
+  - `PENDING_PAYMENT`
+  - `CANCELED`
+- Toda apólice nasce ativa com cobertura de reposição por aparelho novo.
+- Apólices ativas podem ser marcadas como pendentes de pagamento.
+- Apólices pendentes de pagamento podem ser canceladas por inadimplência.
+- O cancelamento comum é idempotente para apólices já canceladas.
 
-Suporte à cobertura **NEW_DEVICE_REPLACEMENT**, permitindo a substituição do dispositivo segurado por um novo em caso de sinistro.
+### Persistência
 
-### 🔄 Ciclo de Vida Automatizado
+- Adaptador de persistência com Spring Data JPA.
+- Driver PostgreSQL configurado para execução local/runtime.
+- H2 configurado para testes de integração.
+- `PolicyEntity` isolada na camada de infraestrutura.
+- Mapper dedicado entre `Policy` do domínio e `PolicyEntity` da infraestrutura.
+- Docker Compose com PostgreSQL para desenvolvimento local.
 
-Gerenciamento automático dos estados da apólice:
+### Automação de Faturamento
 
-* `ACTIVE`
-* `PENDING_PAYMENT`
-* `SUSPENDED`
-* `CANCELLED`
+- `BillingJob` agendado com Quartz.
+- Agendamento local: a cada 30 segundos.
+- Referência de cron para produção: `0 0 0 * * ?`.
+- O caso de uso diário busca apólices ativas vencendo no dia atual.
+- Apólices devidas são marcadas como `PENDING_PAYMENT` e persistidas.
 
-As transições são executadas por processos automatizados de alta confiabilidade.
+### Automação de Cancelamento por Inadimplência
 
----
+- `CancellationJob` agendado com Quartz.
+- Agendamento local: a cada 45 segundos.
+- Referência de cron para produção: `0 15 0 * * ?`.
+- Apólices em `PENDING_PAYMENT` são avaliadas em Java.
+- Apólices com atraso de 10 dias ou mais são canceladas.
+- O cálculo de atraso com virada de mês está coberto por testes.
 
-## 🏗️ Arquitetura
+### Observabilidade
 
-A aplicação segue o padrão **Hexagonal Architecture**, isolando completamente o domínio das tecnologias externas.
+- Spring Boot Actuator habilitado.
+- Exportação de métricas Prometheus via Micrometer.
+- Endpoints expostos:
+  - `/actuator/health`
+  - `/actuator/info`
+  - `/actuator/metrics`
+  - `/actuator/prometheus`
+- Detalhes do health habilitados para facilitar debug local.
+- Métrica customizada para criação bem-sucedida de apólices:
+  - Nome no Actuator: `policies.created`
+  - Nome no Prometheus: `policies_created_total`
 
-### Camadas
-
-#### Domain (Core)
-
-Responsável pelas regras de negócio:
-
-* Entidades ricas (`Policy`, `MobileDevice`);
-* Enums;
-* Validações;
-* Regras de domínio.
-
-> Não possui dependência de frameworks.
-
-#### Application (Ports & Use Cases)
-
-Responsável pela orquestração dos casos de uso:
-
-* `CreatePolicyUseCase`
-* `ProcessDailyBillingUseCase`
-
-Além das portas de entrada e saída da aplicação.
-
-#### Infrastructure (Adapters)
-
-Responsável pelos detalhes técnicos:
-
-* API REST;
-* Persistência JPA;
-* Quartz Scheduler;
-* Configurações da aplicação.
-
----
-
-## 🛠️ Tecnologias
-
-| Tecnologia        | Versão    |
-| ----------------- | --------- |
-| Java              | 21        |
-| Spring Boot       | 3.4+      |
-| PostgreSQL        | 16        |
-| Quartz Scheduler  | Latest    |
-| Swagger / OpenAPI | Springdoc |
-| JUnit 5           | Latest    |
-| Mockito           | Latest    |
-| Docker            | Latest    |
-| Docker Compose    | Latest    |
-
----
-
-## 📂 Estrutura do Projeto
+## Arquitetura
 
 ```text
 src/main/java/br/com/insurtech/policybilling/
-├── domain/              # Modelos de negócio e regras puras
-├── application/         # Casos de uso e portas (In/Out)
-└── infrastructure/      # Adaptadores (Web, Scheduler, Persistence) e Config
+├── domain
+│   ├── exception
+│   └── model
+├── application
+│   ├── port
+│   │   ├── in
+│   │   └── out
+│   └── usecase
+└── infrastructure
+    ├── adapter
+    │   ├── in
+    │   │   ├── scheduler
+    │   │   └── web
+    │   └── out
+    │       └── persistence
+    ├── config
+    └── observability
 ```
 
----
+### Domain
 
-## 🔒 Tratamento de Erros
+Contém as regras de negócio e os modelos em Java puro. Não depende de Spring, JPA, Quartz, RabbitMQ, Security ou Micrometer.
 
-A API implementa o padrão **RFC 7807 (Problem Details for HTTP APIs)**, fornecendo respostas padronizadas para:
+### Application
 
-* Erros de validação;
-* Violações de regras de negócio;
-* Recursos não encontrados;
-* Requisições inválidas.
+Contém os casos de uso e as portas da aplicação:
 
----
+- `CreatePolicyUseCase`
+- `ProcessDailyBillingUseCase`
+- `CancelOverduePoliciesUseCase`
+- `PolicyRepositoryPort`
 
-## 🚀 Como Executar
+### Infrastructure
 
-### 1. Subir o banco de dados
+Contém os adaptadores e configurações técnicas:
+
+- Controller REST.
+- Tratamento global de exceções.
+- Adaptador de persistência JPA.
+- Jobs do Quartz.
+- Configurações Spring.
+- Decorator de observabilidade para métricas de criação de apólices.
+
+## Tecnologias
+
+| Tecnologia | Uso |
+| --- | --- |
+| Java 21 | Runtime e versão da linguagem |
+| Spring Boot 3.5.x | Framework da aplicação |
+| Spring Web | API REST |
+| Spring Data JPA | Persistência |
+| PostgreSQL | Banco local/runtime |
+| H2 | Banco em memória para testes |
+| Quartz Scheduler | Jobs automatizados |
+| Springdoc OpenAPI | Documentação da API |
+| Spring Boot Actuator | Endpoints de health, info e métricas |
+| Micrometer Prometheus | Exportação de métricas para Prometheus |
+| JUnit 5 | Testes automatizados |
+| Mockito | Test doubles |
+| Docker Compose | PostgreSQL local |
+
+## Como Executar Localmente
+
+Subir o PostgreSQL:
 
 ```bash
 docker compose up -d
 ```
 
-### 2. Executar a aplicação
+Executar a aplicação:
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-### 3. Acessar a documentação da API
+Swagger UI:
 
 ```text
 http://localhost:8080/swagger-ui.html
 ```
 
----
+Health da aplicação:
 
-## 🧪 Testes
+```text
+http://localhost:8080/actuator/health
+```
 
-O projeto possui testes em diferentes níveis:
+Informações da aplicação:
 
-### Testes Unitários
+```text
+http://localhost:8080/actuator/info
+```
 
-Validam:
+Métricas Prometheus:
 
-* Regras de domínio;
-* Entidades;
-* Casos de uso;
-* Serviços de aplicação.
+```text
+http://localhost:8080/actuator/prometheus
+```
 
-Utilizando:
+Métrica customizada de criação de apólices:
 
-* JUnit 5
-* Mockito
+```text
+http://localhost:8080/actuator/metrics/policies.created
+```
 
-### Testes Web
+## Testes
 
-Garantem os contratos da API REST.
-
-### Testes de Arquitetura
-
-Verificam o isolamento das camadas e a aderência à Arquitetura Hexagonal.
-
-### Executar todos os testes
+Executar todos os testes:
 
 ```bash
 ./mvnw test
 ```
 
----
+A cobertura atual inclui:
 
-## 🛣️ Roadmap
+- Regras de domínio.
+- Casos de uso da aplicação.
+- Automação de faturamento.
+- Automação de cancelamento por inadimplência.
+- Contratos do controller web.
+- Adaptador de persistência JPA.
+- Verificação de fronteira arquitetural.
+- Decorator de observabilidade.
 
-* [ ] Integração com gateway de pagamento real
-* [ ] Cancelamento automático por inadimplência
-* [ ] Observabilidade com Spring Boot Actuator
-* [ ] Testes de carga e performance
-* [ ] Integração via mensageria para notificações de cobrança
+## Roadmap
 
----
+- Integração com gateway de pagamento real para cobranças recorrentes.
+- Publicação de eventos RabbitMQ para tentativas de cobrança e resultados de pagamento.
+- Configuração OAuth2 Resource Server com validação JWT e RBAC.
+- Política de retry para falhas de pagamento.
+- Fluxo de suspensão de apólice antes do cancelamento definitivo.
+- Migrações de banco com Flyway ou Liquibase.
+- Perfis de produção para Quartz usando cron em vez dos intervalos curtos locais.
+- Dashboards e alertas com Prometheus/Grafana.
+- Testes de carga e resiliência.
 
-## 📌 Objetivo do Projeto
+## Objetivo do Projeto
 
-Este projeto foi desenvolvido com foco em demonstrar boas práticas de desenvolvimento backend utilizando:
+Este projeto demonstra práticas de engenharia backend aplicadas a um domínio realista de faturamento de seguros:
 
-* Arquitetura Hexagonal;
-* Domain-Driven Design (DDD);
-* Clean Architecture;
-* Testes automatizados;
-* APIs REST robustas;
-* Processamento assíncrono e agendado.
-
-A proposta simula um cenário real de uma Insurtech moderna, com regras de negócio voltadas para faturamento recorrente e gestão automatizada de apólices.
+- Arquitetura Hexagonal.
+- Domain-Driven Design.
+- Orquestração clara de casos de uso.
+- Regras de domínio ricas.
+- Jobs automatizados.
+- Adaptador real de persistência.
+- Testes em múltiplas camadas.
+- Observabilidade orientada a produção.
