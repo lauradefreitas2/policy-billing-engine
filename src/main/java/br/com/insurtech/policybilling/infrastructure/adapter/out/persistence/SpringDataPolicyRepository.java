@@ -9,4 +9,6 @@ import java.util.UUID;
 public interface SpringDataPolicyRepository extends JpaRepository<PolicyEntity, UUID> {
 
     List<PolicyEntity> findByDueDayAndStatus(int dueDay, String status);
+
+    List<PolicyEntity> findByStatus(String status);
 }

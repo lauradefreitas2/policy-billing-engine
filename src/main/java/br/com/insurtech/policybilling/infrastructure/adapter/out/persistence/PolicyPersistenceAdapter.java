@@ -44,4 +44,13 @@ public class PolicyPersistenceAdapter implements PolicyRepositoryPort {
                 .map(PolicyMapper::toDomain)
                 .toList();
     }
+
+    @Override
+    public List<Policy> findByStatus(PolicyStatus status) {
+        Objects.requireNonNull(status, "status must not be null");
+        return policyRepository.findByStatus(status.name())
+                .stream()
+                .map(PolicyMapper::toDomain)
+                .toList();
+    }
 }

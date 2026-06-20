@@ -74,6 +74,13 @@ public final class Policy {
         this.status = PolicyStatus.CANCELED;
     }
 
+    public void cancelDueToNonPayment() {
+        if (status != PolicyStatus.PENDING_PAYMENT) {
+            throw new DomainException("Only pending payment policies can be canceled due to non-payment");
+        }
+        this.status = PolicyStatus.CANCELED;
+    }
+
     private static <T> T requireNonNull(T value, String name) {
         if (value == null) {
             throw new DomainException(name + " must not be null");

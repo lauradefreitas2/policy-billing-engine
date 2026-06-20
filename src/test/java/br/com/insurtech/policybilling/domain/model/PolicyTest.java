@@ -179,6 +179,26 @@ class PolicyTest {
     }
 
     @Test
+    @DisplayName("should cancel pending payment policy due to non payment")
+    void shouldCancelPendingPaymentPolicyDueToNonPayment() {
+        Policy policy = createValidPolicy(20, PolicyStatus.PENDING_PAYMENT);
+
+        policy.cancelDueToNonPayment();
+
+        assertThat(policy.status()).isEqualTo(PolicyStatus.CANCELED);
+    }
+
+    @Test
+    @DisplayName("should not cancel active policy due to non payment")
+    void shouldNotCancelActivePolicyDueToNonPayment() {
+        Policy policy = createValidPolicy(20, PolicyStatus.ACTIVE);
+
+        assertThatThrownBy(policy::cancelDueToNonPayment)
+                .isInstanceOf(DomainException.class)
+                .hasMessage("Only pending payment policies can be canceled due to non-payment");
+    }
+
+    @Test
     @DisplayName("should be idempotent when canceling already canceled policy")
     void shouldBeIdempotentWhenCancelingAlreadyCanceledPolicy() {
         Policy policy = createValidPolicy(20, PolicyStatus.CANCELED);

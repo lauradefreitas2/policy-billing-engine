@@ -156,4 +156,42 @@ class PolicyPersistenceAdapterTest {
         assertThat(policy.coverage()).isEqualTo(CoverageType.NEW_DEVICE_REPLACEMENT);
         assertThat(policy.device().imei()).isEqualTo("123456789012345");
     }
+
+    @Test
+    @DisplayName("should find policies by status")
+    void shouldFindPoliciesByStatus() {
+        PolicyEntity pendingPolicy = new PolicyEntity(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "Apple",
+                "iPhone 15",
+                "123456789012345",
+                new BigDecimal("5999.90"),
+                "NEW_DEVICE_REPLACEMENT",
+                new BigDecimal("99.90"),
+                10,
+                "PENDING_PAYMENT"
+        );
+        PolicyEntity activePolicy = new PolicyEntity(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "Samsung",
+                "Galaxy S26",
+                "543210987654321",
+                new BigDecimal("4499.90"),
+                "NEW_DEVICE_REPLACEMENT",
+                new BigDecimal("79.90"),
+                10,
+                "ACTIVE"
+        );
+        repository.saveAllAndFlush(List.of(pendingPolicy, activePolicy));
+
+        List<Policy> result = adapter.findByStatus(PolicyStatus.PENDING_PAYMENT);
+
+        assertThat(result).hasSize(1);
+        Policy policy = result.getFirst();
+        assertThat(policy.id()).isEqualTo(pendingPolicy.getId());
+        assertThat(policy.status()).isEqualTo(PolicyStatus.PENDING_PAYMENT);
+        assertThat(policy.coverage()).isEqualTo(CoverageType.NEW_DEVICE_REPLACEMENT);
+    }
 }
