@@ -27,13 +27,13 @@ public class PolicyEntity {
     @Column(name = "device_imei", nullable = false, length = 15)
     private String deviceImei;
 
-    @Column(name = "device_invoice_value", nullable = false, precision = 19, scale = 2)
+    @Column(name = "device_invoice_value", nullable = false, precision = 10, scale = 2)
     private BigDecimal deviceInvoiceValue;
 
     @Column(name = "coverage", nullable = false)
     private String coverage;
 
-    @Column(name = "monthly_premium", nullable = false, precision = 19, scale = 2)
+    @Column(name = "monthly_premium", nullable = false, precision = 10, scale = 2)
     private BigDecimal monthlyPremium;
 
     @Column(name = "due_day", nullable = false)
