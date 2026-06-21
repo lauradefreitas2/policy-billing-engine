@@ -4,6 +4,8 @@ O **Policy Billing Engine** é um serviço backend para uma Insurtech focada em 
 
 O projeto é construído com **Java 21** e **Spring Boot**, seguindo **Arquitetura Hexagonal (Ports & Adapters)**. O domínio permanece independente de Spring, JPA, Quartz, APIs web e ferramentas de observabilidade.
 
+Versão atual do projeto: **1.1.0-SNAPSHOT**.
+
 ## Funcionalidades Implementadas
 
 ### Emissão de Apólices
@@ -30,11 +32,15 @@ O projeto é construído com **Java 21** e **Spring Boot**, seguindo **Arquitetu
 ### Persistência
 
 - Adaptador de persistência com Spring Data JPA.
+- Versionamento de schema com Flyway.
+- Migração inicial `V1__create_policies_table.sql` para criação da tabela `policies`.
+- Hibernate configurado com `ddl-auto=validate`; a aplicação valida o schema, mas não cria nem altera tabelas automaticamente.
 - Driver PostgreSQL configurado para execução local/runtime.
 - H2 configurado para testes de integração.
 - `PolicyEntity` isolada na camada de infraestrutura.
 - Mapper dedicado entre `Policy` do domínio e `PolicyEntity` da infraestrutura.
 - Docker Compose com PostgreSQL para desenvolvimento local.
+- Constraint de banco para garantir `due_day` entre 1 e 28.
 
 ### Automação de Faturamento
 
@@ -122,6 +128,7 @@ Contém os adaptadores e configurações técnicas:
 | Spring Boot 3.5.x | Framework da aplicação |
 | Spring Web | API REST |
 | Spring Data JPA | Persistência |
+| Flyway | Versionamento de schema do banco |
 | PostgreSQL | Banco local/runtime |
 | H2 | Banco em memória para testes |
 | Quartz Scheduler | Jobs automatizados |
@@ -140,11 +147,20 @@ Subir o PostgreSQL:
 docker compose up -d
 ```
 
+Se o banco local já tiver tabelas criadas por versões antigas com Hibernate `ddl-auto=update`, limpe o volume antes de subir novamente:
+
+```bash
+docker compose down -v
+docker compose up -d
+```
+
 Executar a aplicação:
 
 ```bash
 ./mvnw spring-boot:run
 ```
+
+Na inicialização, o Flyway aplica as migrations em `src/main/resources/db/migration` antes do Hibernate validar o schema.
 
 Swagger UI:
 
@@ -192,6 +208,7 @@ A cobertura atual inclui:
 - Automação de cancelamento por inadimplência.
 - Contratos do controller web.
 - Adaptador de persistência JPA.
+- Execução das migrations Flyway em banco H2 durante os testes.
 - Verificação de fronteira arquitetural.
 - Decorator de observabilidade.
 
@@ -202,7 +219,7 @@ A cobertura atual inclui:
 - Configuração OAuth2 Resource Server com validação JWT e RBAC.
 - Política de retry para falhas de pagamento.
 - Fluxo de suspensão de apólice antes do cancelamento definitivo.
-- Migrações de banco com Flyway ou Liquibase.
+- Novas migrations Flyway conforme o modelo de dados evoluir.
 - Perfis de produção para Quartz usando cron em vez dos intervalos curtos locais.
 - Dashboards e alertas com Prometheus/Grafana.
 - Testes de carga e resiliência.
@@ -217,5 +234,6 @@ Este projeto demonstra práticas de engenharia backend aplicadas a um domínio r
 - Regras de domínio ricas.
 - Jobs automatizados.
 - Adaptador real de persistência.
+- Versionamento de banco com Flyway.
 - Testes em múltiplas camadas.
 - Observabilidade orientada a produção.
