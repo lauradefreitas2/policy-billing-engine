@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -42,19 +43,19 @@ class CancelOverduePoliciesUseCaseImplTest {
     private CancelOverduePoliciesUseCaseImpl cancelOverduePoliciesUseCase;
 
     @Test
-    @DisplayName("should cancel policies overdue by at least ten days")
-    void shouldCancelPoliciesOverdueByAtLeastTenDays() {
-        LocalDate currentDate = LocalDate.of(2026, 6, 20);
-        Policy firstPolicy = buildPendingPaymentPolicy(10);
-        Policy secondPolicy = buildPendingPaymentPolicy(10);
-        when(policyRepositoryPort.findByStatus(PolicyStatus.PENDING_PAYMENT))
+    @DisplayName("should cancel policies suspended for at least ten days")
+    void shouldCancelPoliciesSuspendedForAtLeastTenDays() {
+        LocalDate currentDate = LocalDate.of(2026, 6, 21);
+        Policy firstPolicy = buildSuspendedPolicy(LocalDateTime.of(2026, 6, 11, 0, 0));
+        Policy secondPolicy = buildSuspendedPolicy(LocalDateTime.of(2026, 6, 10, 0, 0));
+        when(policyRepositoryPort.findByStatus(PolicyStatus.SUSPENDED))
                 .thenReturn(List.of(firstPolicy, secondPolicy));
 
         cancelOverduePoliciesUseCase.execute(currentDate);
 
         assertThat(firstPolicy.status()).isEqualTo(PolicyStatus.CANCELED);
         assertThat(secondPolicy.status()).isEqualTo(PolicyStatus.CANCELED);
-        verify(policyRepositoryPort).findByStatus(PolicyStatus.PENDING_PAYMENT);
+        verify(policyRepositoryPort).findByStatus(PolicyStatus.SUSPENDED);
         verify(policyRepositoryPort, times(2)).save(any(Policy.class));
         verify(policyRepositoryPort).save(firstPolicy);
         verify(policyRepositoryPort).save(secondPolicy);
@@ -64,9 +65,9 @@ class CancelOverduePoliciesUseCaseImplTest {
     @Test
     @DisplayName("should publish policy canceled event after saving canceled policy")
     void shouldPublishPolicyCanceledEventAfterSavingCanceledPolicy() {
-        LocalDate currentDate = LocalDate.of(2026, 6, 20);
-        Policy policy = buildPendingPaymentPolicy(10);
-        when(policyRepositoryPort.findByStatus(PolicyStatus.PENDING_PAYMENT))
+        LocalDate currentDate = LocalDate.of(2026, 6, 21);
+        Policy policy = buildSuspendedPolicy(LocalDateTime.of(2026, 6, 11, 0, 0));
+        when(policyRepositoryPort.findByStatus(PolicyStatus.SUSPENDED))
                 .thenReturn(List.of(policy));
 
         cancelOverduePoliciesUseCase.execute(currentDate);
@@ -83,11 +84,11 @@ class CancelOverduePoliciesUseCaseImplTest {
     }
 
     @Test
-    @DisplayName("should cancel policy exactly on tenth overdue day")
-    void shouldCancelPolicyExactlyOnTenthOverdueDay() {
-        LocalDate currentDate = LocalDate.of(2026, 6, 20);
-        Policy policy = buildPendingPaymentPolicy(10);
-        when(policyRepositoryPort.findByStatus(PolicyStatus.PENDING_PAYMENT))
+    @DisplayName("should cancel policy exactly on tenth suspended day")
+    void shouldCancelPolicyExactlyOnTenthSuspendedDay() {
+        LocalDate currentDate = LocalDate.of(2026, 6, 21);
+        Policy policy = buildSuspendedPolicy(LocalDateTime.of(2026, 6, 11, 0, 0));
+        when(policyRepositoryPort.findByStatus(PolicyStatus.SUSPENDED))
                 .thenReturn(List.of(policy));
 
         cancelOverduePoliciesUseCase.execute(currentDate);
@@ -98,47 +99,47 @@ class CancelOverduePoliciesUseCaseImplTest {
     }
 
     @Test
-    @DisplayName("should not cancel policies overdue by nine days")
-    void shouldNotCancelPoliciesOverdueByNineDays() {
-        LocalDate currentDate = LocalDate.of(2026, 6, 19);
-        Policy policy = buildPendingPaymentPolicy(10);
-        when(policyRepositoryPort.findByStatus(PolicyStatus.PENDING_PAYMENT))
+    @DisplayName("should not cancel policies suspended for nine days")
+    void shouldNotCancelPoliciesSuspendedForNineDays() {
+        LocalDate currentDate = LocalDate.of(2026, 6, 20);
+        Policy policy = buildSuspendedPolicy(LocalDateTime.of(2026, 6, 11, 0, 0));
+        when(policyRepositoryPort.findByStatus(PolicyStatus.SUSPENDED))
                 .thenReturn(List.of(policy));
 
         cancelOverduePoliciesUseCase.execute(currentDate);
 
-        assertThat(policy.status()).isEqualTo(PolicyStatus.PENDING_PAYMENT);
-        verify(policyRepositoryPort).findByStatus(PolicyStatus.PENDING_PAYMENT);
+        assertThat(policy.status()).isEqualTo(PolicyStatus.SUSPENDED);
+        verify(policyRepositoryPort).findByStatus(PolicyStatus.SUSPENDED);
         verify(policyRepositoryPort, never()).save(policy);
         verify(policyEventPublisherPort, never()).publishPolicyCanceledEvent(any(PolicyCanceledEvent.class));
     }
 
     @Test
-    @DisplayName("should calculate overdue days across month boundary")
-    void shouldCalculateOverdueDaysAcrossMonthBoundary() {
+    @DisplayName("should calculate suspended days across month boundary")
+    void shouldCalculateSuspendedDaysAcrossMonthBoundary() {
         LocalDate currentDate = LocalDate.of(2026, 7, 8);
-        Policy policy = buildPendingPaymentPolicy(28);
-        when(policyRepositoryPort.findByStatus(PolicyStatus.PENDING_PAYMENT))
+        Policy policy = buildSuspendedPolicy(LocalDateTime.of(2026, 6, 28, 0, 0));
+        when(policyRepositoryPort.findByStatus(PolicyStatus.SUSPENDED))
                 .thenReturn(List.of(policy));
 
         cancelOverduePoliciesUseCase.execute(currentDate);
 
         assertThat(policy.status()).isEqualTo(PolicyStatus.CANCELED);
-        verify(policyRepositoryPort).findByStatus(PolicyStatus.PENDING_PAYMENT);
+        verify(policyRepositoryPort).findByStatus(PolicyStatus.SUSPENDED);
         verify(policyRepositoryPort).save(policy);
         verify(policyEventPublisherPort).publishPolicyCanceledEvent(any(PolicyCanceledEvent.class));
     }
 
     @Test
-    @DisplayName("should finish gracefully when no pending policies are found")
-    void shouldFinishGracefullyWhenNoPendingPoliciesAreFound() {
+    @DisplayName("should finish gracefully when no suspended policies are found")
+    void shouldFinishGracefullyWhenNoSuspendedPoliciesAreFound() {
         LocalDate currentDate = LocalDate.of(2026, 6, 20);
-        when(policyRepositoryPort.findByStatus(PolicyStatus.PENDING_PAYMENT))
+        when(policyRepositoryPort.findByStatus(PolicyStatus.SUSPENDED))
                 .thenReturn(List.of());
 
         cancelOverduePoliciesUseCase.execute(currentDate);
 
-        verify(policyRepositoryPort).findByStatus(PolicyStatus.PENDING_PAYMENT);
+        verify(policyRepositoryPort).findByStatus(PolicyStatus.SUSPENDED);
         verify(policyRepositoryPort, never()).save(any(Policy.class));
         verify(policyEventPublisherPort, never()).publishPolicyCanceledEvent(any(PolicyCanceledEvent.class));
     }
@@ -169,12 +170,16 @@ class CancelOverduePoliciesUseCaseImplTest {
                 .hasMessage("policyEventPublisherPort must not be null");
     }
 
-    private static Policy buildPendingPaymentPolicy(int dueDay) {
-        return TestFixtures.policyWithStatus(
+    private static Policy buildSuspendedPolicy(LocalDateTime suspendedAt) {
+        return new Policy(
                 UUID.randomUUID(),
                 UUID.randomUUID(),
-                dueDay,
-                PolicyStatus.PENDING_PAYMENT
+                TestFixtures.validMobileDevice(),
+                br.com.insurtech.policybilling.domain.model.CoverageType.NEW_DEVICE_REPLACEMENT,
+                TestFixtures.MONTHLY_PREMIUM,
+                TestFixtures.DUE_DAY,
+                PolicyStatus.SUSPENDED,
+                suspendedAt
         );
     }
 }

@@ -26,7 +26,8 @@ public final class PolicyMapper {
                 policy.coverage().name(),
                 policy.monthlyPremium(),
                 policy.dueDay(),
-                policy.status().name()
+                policy.status().name(),
+                policy.suspendedAt()
         );
     }
 
@@ -47,7 +48,8 @@ public final class PolicyMapper {
                 CoverageType.valueOf(entity.getCoverage()),
                 entity.getMonthlyPremium(),
                 entity.getDueDay(),
-                PolicyStatus.valueOf(entity.getStatus())
+                PolicyStatus.valueOf(entity.getStatus()),
+                entity.getSuspendedAt()
         );
     }
 }

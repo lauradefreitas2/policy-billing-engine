@@ -18,7 +18,7 @@ import java.util.Objects;
 public class CancelOverduePoliciesUseCaseImpl implements CancelOverduePoliciesUseCase {
 
     private static final Logger log = LoggerFactory.getLogger(CancelOverduePoliciesUseCaseImpl.class);
-    private static final int MAX_DAYS_OVERDUE = 10;
+    private static final int MAX_DAYS_SUSPENDED = 10;
 
     private final PolicyRepositoryPort policyRepositoryPort;
     private final PolicyEventPublisherPort policyEventPublisherPort;
@@ -43,14 +43,14 @@ public class CancelOverduePoliciesUseCaseImpl implements CancelOverduePoliciesUs
 
         log.info("Starting overdue policy cancellation for date {}", currentDate);
 
-        List<Policy> pendingPolicies = policyRepositoryPort.findByStatus(PolicyStatus.PENDING_PAYMENT);
-        log.info("Found {} pending payment policies to evaluate for cancellation", pendingPolicies.size());
+        List<Policy> suspendedPolicies = policyRepositoryPort.findByStatus(PolicyStatus.SUSPENDED);
+        log.info("Found {} suspended policies to evaluate for cancellation", suspendedPolicies.size());
 
         int canceledPolicies = 0;
-        for (Policy policy : pendingPolicies) {
-            long daysOverdue = calculateDaysOverdue(policy, currentDate);
-            if (daysOverdue >= MAX_DAYS_OVERDUE) {
-                cancelPolicy(policy, daysOverdue);
+        for (Policy policy : suspendedPolicies) {
+            long daysSuspended = calculateDaysSuspended(policy, currentDate);
+            if (daysSuspended >= MAX_DAYS_SUSPENDED) {
+                cancelPolicy(policy, daysSuspended);
                 canceledPolicies++;
             }
         }
@@ -62,19 +62,11 @@ public class CancelOverduePoliciesUseCaseImpl implements CancelOverduePoliciesUs
         );
     }
 
-    private long calculateDaysOverdue(Policy policy, LocalDate currentDate) {
-        LocalDate lastDueDate = resolveLastDueDate(policy.dueDay(), currentDate);
-        return ChronoUnit.DAYS.between(lastDueDate, currentDate);
+    private long calculateDaysSuspended(Policy policy, LocalDate currentDate) {
+        return ChronoUnit.DAYS.between(policy.suspendedAt().toLocalDate(), currentDate);
     }
 
-    private LocalDate resolveLastDueDate(int dueDay, LocalDate currentDate) {
-        if (currentDate.getDayOfMonth() < dueDay) {
-            return currentDate.minusMonths(1).withDayOfMonth(dueDay);
-        }
-        return currentDate.withDayOfMonth(dueDay);
-    }
-
-    private void cancelPolicy(Policy policy, long daysOverdue) {
+    private void cancelPolicy(Policy policy, long daysSuspended) {
         policy.cancelDueToNonPayment();
         policyRepositoryPort.save(policy);
         policyEventPublisherPort.publishPolicyCanceledEvent(new PolicyCanceledEvent(
@@ -82,6 +74,6 @@ public class CancelOverduePoliciesUseCaseImpl implements CancelOverduePoliciesUs
                 policy.customerId(),
                 LocalDateTime.now()
         ));
-        log.debug("Policy {} canceled due to {} overdue days", policy.id(), daysOverdue);
+        log.debug("Policy {} canceled due to {} suspended days", policy.id(), daysSuspended);
     }
 }

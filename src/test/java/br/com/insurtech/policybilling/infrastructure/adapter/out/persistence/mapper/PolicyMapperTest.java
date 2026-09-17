@@ -37,6 +37,7 @@ class PolicyMapperTest {
         assertThat(entity.getMonthlyPremium()).isEqualByComparingTo(policy.monthlyPremium());
         assertThat(entity.getDueDay()).isEqualTo(policy.dueDay());
         assertThat(entity.getStatus()).isEqualTo(policy.status().name());
+        assertThat(entity.getSuspendedAt()).isNull();
     }
 
     @Test
@@ -61,6 +62,25 @@ class PolicyMapperTest {
         assertThat(policy.monthlyPremium()).isEqualByComparingTo(entity.getMonthlyPremium());
         assertThat(policy.dueDay()).isEqualTo(entity.getDueDay());
         assertThat(policy.status()).isEqualTo(PolicyStatus.CANCELED);
+        assertThat(policy.suspendedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("should preserve suspension timestamp in both mapping directions")
+    void shouldPreserveSuspensionTimestampInBothMappingDirections() {
+        Policy suspendedPolicy = TestFixtures.policyWithStatus(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                10,
+                PolicyStatus.SUSPENDED
+        );
+
+        PolicyEntity entity = PolicyMapper.toEntity(suspendedPolicy);
+        Policy restoredPolicy = PolicyMapper.toDomain(entity);
+
+        assertThat(entity.getSuspendedAt()).isEqualTo(TestFixtures.SUSPENDED_AT);
+        assertThat(restoredPolicy.status()).isEqualTo(PolicyStatus.SUSPENDED);
+        assertThat(restoredPolicy.suspendedAt()).isEqualTo(TestFixtures.SUSPENDED_AT);
     }
 
     @Test
