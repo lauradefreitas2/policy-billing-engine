@@ -3,15 +3,16 @@ package br.com.insurtech.policybilling.domain.model;
 import br.com.insurtech.policybilling.domain.exception.DomainException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.math.BigDecimal;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@ExtendWith(MockitoExtension.class)
 class MobileDeviceTest {
 
     @Test
@@ -46,146 +47,36 @@ class MobileDeviceTest {
         assertThat(device.imei()).isEqualTo("356789012345678");
     }
 
-    @Test
-    @DisplayName("should throw DomainException when brand is null")
-    void shouldThrowExceptionWhenBrandIsNull() {
-        assertThatThrownBy(() -> new MobileDevice(
-                null,
-                "Model X",
-                "356789012345678",
-                new BigDecimal("1.00")
-        ))
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("invalidDevices")
+    @DisplayName("should reject invalid mobile device data")
+    void shouldRejectInvalidMobileDeviceData(
+            String scenario,
+            String brand,
+            String model,
+            String imei,
+            BigDecimal invoiceValue,
+            String expectedMessage
+    ) {
+        assertThatThrownBy(() -> new MobileDevice(brand, model, imei, invoiceValue))
                 .isInstanceOf(DomainException.class)
-                .hasMessage("brand must not be null");
+                .hasMessage(expectedMessage);
     }
 
-    @Test
-    @DisplayName("should throw DomainException when brand is blank")
-    void shouldThrowExceptionWhenBrandIsBlank() {
-        assertThatThrownBy(() -> new MobileDevice(
-                " ",
-                "Model X",
-                "356789012345678",
-                new BigDecimal("1.00")
-        ))
-                .isInstanceOf(DomainException.class)
-                .hasMessage("brand must not be blank");
-    }
-
-    @Test
-    @DisplayName("should throw DomainException when model is null")
-    void shouldThrowExceptionWhenModelIsNull() {
-        assertThatThrownBy(() -> new MobileDevice(
-                "Manufacturer",
-                null,
-                "356789012345678",
-                new BigDecimal("1.00")
-        ))
-                .isInstanceOf(DomainException.class)
-                .hasMessage("model must not be null");
-    }
-
-    @Test
-    @DisplayName("should throw DomainException when model is blank")
-    void shouldThrowExceptionWhenModelIsBlank() {
-        assertThatThrownBy(() -> new MobileDevice(
-                "Manufacturer",
-                " ",
-                "356789012345678",
-                new BigDecimal("1.00")
-        ))
-                .isInstanceOf(DomainException.class)
-                .hasMessage("model must not be blank");
-    }
-
-    @Test
-    @DisplayName("should throw DomainException when imei is null")
-    void shouldThrowExceptionWhenImeiIsNull() {
-        assertThatThrownBy(() -> new MobileDevice(
-                "Manufacturer",
-                "Model X",
-                null,
-                new BigDecimal("1.00")
-        ))
-                .isInstanceOf(DomainException.class)
-                .hasMessage("imei must not be null");
-    }
-
-    @Test
-    @DisplayName("should throw DomainException when imei is blank")
-    void shouldThrowExceptionWhenImeiIsBlank() {
-        assertThatThrownBy(() -> new MobileDevice(
-                "Manufacturer",
-                "Model X",
-                " ",
-                new BigDecimal("1.00")
-        ))
-                .isInstanceOf(DomainException.class)
-                .hasMessage("imei must not be blank");
-    }
-
-    @Test
-    @DisplayName("should throw DomainException when imei has less than 15 digits")
-    void shouldThrowExceptionWhenImeiHasLessThanFifteenDigits() {
-        assertThatThrownBy(() -> new MobileDevice(
-                "Manufacturer",
-                "Model X",
-                "35678901234567",
-                new BigDecimal("1.00")
-        ))
-                .isInstanceOf(DomainException.class)
-                .hasMessage("imei must contain exactly 15 digits");
-    }
-
-    @Test
-    @DisplayName("should throw DomainException when imei contains non digit characters")
-    void shouldThrowExceptionWhenImeiContainsNonDigitCharacters() {
-        assertThatThrownBy(() -> new MobileDevice(
-                "Manufacturer",
-                "Model X",
-                "35678901234567A",
-                new BigDecimal("1.00")
-        ))
-                .isInstanceOf(DomainException.class)
-                .hasMessage("imei must contain exactly 15 digits");
-    }
-
-    @Test
-    @DisplayName("should throw DomainException when invoice value is null")
-    void shouldThrowExceptionWhenInvoiceValueIsNull() {
-        assertThatThrownBy(() -> new MobileDevice(
-                "Manufacturer",
-                "Model X",
-                "356789012345678",
-                null
-        ))
-                .isInstanceOf(DomainException.class)
-                .hasMessage("invoiceValue must not be null");
-    }
-
-    @Test
-    @DisplayName("should throw DomainException when invoice value is zero")
-    void shouldThrowExceptionWhenInvoiceValueIsZero() {
-        assertThatThrownBy(() -> new MobileDevice(
-                "Manufacturer",
-                "Model X",
-                "356789012345678",
-                BigDecimal.ZERO
-        ))
-                .isInstanceOf(DomainException.class)
-                .hasMessage("invoiceValue must be positive");
-    }
-
-    @Test
-    @DisplayName("should throw DomainException when invoice value is negative")
-    void shouldThrowExceptionWhenInvoiceValueIsNegative() {
-        assertThatThrownBy(() -> new MobileDevice(
-                "Manufacturer",
-                "Model X",
-                "356789012345678",
-                new BigDecimal("-1.00")
-        ))
-                .isInstanceOf(DomainException.class)
-                .hasMessage("invoiceValue must be positive");
+    private static Stream<Arguments> invalidDevices() {
+        return Stream.of(
+                Arguments.of("brand null", null, "Model X", "356789012345678", new BigDecimal("1.00"), "brand must not be null"),
+                Arguments.of("brand blank", " ", "Model X", "356789012345678", new BigDecimal("1.00"), "brand must not be blank"),
+                Arguments.of("model null", "Manufacturer", null, "356789012345678", new BigDecimal("1.00"), "model must not be null"),
+                Arguments.of("model blank", "Manufacturer", " ", "356789012345678", new BigDecimal("1.00"), "model must not be blank"),
+                Arguments.of("imei null", "Manufacturer", "Model X", null, new BigDecimal("1.00"), "imei must not be null"),
+                Arguments.of("imei blank", "Manufacturer", "Model X", " ", new BigDecimal("1.00"), "imei must not be blank"),
+                Arguments.of("imei too short", "Manufacturer", "Model X", "35678901234567", new BigDecimal("1.00"), "imei must contain exactly 15 digits"),
+                Arguments.of("imei too long", "Manufacturer", "Model X", "3567890123456789", new BigDecimal("1.00"), "imei must contain exactly 15 digits"),
+                Arguments.of("imei non numeric", "Manufacturer", "Model X", "35678901234567A", new BigDecimal("1.00"), "imei must contain exactly 15 digits"),
+                Arguments.of("invoice null", "Manufacturer", "Model X", "356789012345678", null, "invoiceValue must not be null"),
+                Arguments.of("invoice zero", "Manufacturer", "Model X", "356789012345678", BigDecimal.ZERO, "invoiceValue must be positive"),
+                Arguments.of("invoice negative", "Manufacturer", "Model X", "356789012345678", new BigDecimal("-1.00"), "invoiceValue must be positive")
+        );
     }
 }

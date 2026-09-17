@@ -1,5 +1,6 @@
 package br.com.insurtech.policybilling.application.usecase;
 
+import br.com.insurtech.policybilling.TestFixtures;
 import br.com.insurtech.policybilling.application.port.in.CreatePolicyCommand;
 import br.com.insurtech.policybilling.application.port.out.PolicyRepositoryPort;
 import br.com.insurtech.policybilling.domain.exception.DomainException;
@@ -9,6 +10,7 @@ import br.com.insurtech.policybilling.domain.model.PolicyStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -19,9 +21,9 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CreatePolicyUseCaseImplTest {
@@ -35,8 +37,10 @@ class CreatePolicyUseCaseImplTest {
     @Test
     @DisplayName("should issue active policy successfully")
     void shouldCreatePolicySuccessfully() {
-        CreatePolicyCommand command = buildValidCommand();
-        when(policyRepositoryPort.save(any(Policy.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        CreatePolicyCommand command = TestFixtures.validCreatePolicyCommand();
+        doAnswer(invocation -> invocation.getArgument(0))
+                .when(policyRepositoryPort)
+                .save(any(Policy.class));
 
         Policy result = createPolicyUseCase.execute(command);
 
@@ -50,7 +54,13 @@ class CreatePolicyUseCaseImplTest {
         assertThat(result.monthlyPremium()).isEqualByComparingTo(command.monthlyPremium());
         assertThat(result.dueDay()).isEqualTo(command.dueDay());
         assertThat(result.status()).isEqualTo(PolicyStatus.ACTIVE);
-        verify(policyRepositoryPort).save(result);
+        ArgumentCaptor<Policy> policyCaptor = ArgumentCaptor.forClass(Policy.class);
+        verify(policyRepositoryPort).save(policyCaptor.capture());
+
+        Policy policyBeforePersistence = policyCaptor.getValue();
+        assertThat(policyBeforePersistence.id()).isNotNull();
+        assertThat(policyBeforePersistence.id()).isEqualTo(result.id());
+        assertThat(policyBeforePersistence.status()).isEqualTo(PolicyStatus.ACTIVE);
     }
 
     @Test
@@ -64,8 +74,8 @@ class CreatePolicyUseCaseImplTest {
     }
 
     @Test
-    @DisplayName("should not save policy when command violates domain rules")
-    void shouldNotSavePolicyWhenCommandViolatesDomainRules() {
+    @DisplayName("should not save policy when due day violates domain rules")
+    void shouldNotSavePolicyWhenDueDayViolatesDomainRules() {
         CreatePolicyCommand invalidCommand = new CreatePolicyCommand(
                 UUID.randomUUID(),
                 "Brand",
@@ -83,16 +93,38 @@ class CreatePolicyUseCaseImplTest {
         verifyNoInteractions(policyRepositoryPort);
     }
 
-    private static CreatePolicyCommand buildValidCommand() {
-        return new CreatePolicyCommand(
+    @Test
+    @DisplayName("should not save policy when mobile device violates domain rules")
+    void shouldNotSavePolicyWhenMobileDeviceViolatesDomainRules() {
+        CreatePolicyCommand invalidCommand = new CreatePolicyCommand(
                 UUID.randomUUID(),
                 "Brand",
                 "Model",
-                "123456789012345",
+                "12345678901234A",
                 new BigDecimal("499.90"),
                 new BigDecimal("99.90"),
                 10
         );
+
+        assertThatThrownBy(() -> createPolicyUseCase.execute(invalidCommand))
+                .isInstanceOf(DomainException.class)
+                .hasMessage("imei must contain exactly 15 digits");
+
+        verifyNoInteractions(policyRepositoryPort);
+    }
+
+    @Test
+    @DisplayName("should return repository result instead of assuming in-memory policy was persisted")
+    void shouldReturnRepositoryResultInsteadOfAssumingInMemoryPolicyWasPersisted() {
+        CreatePolicyCommand command = TestFixtures.validCreatePolicyCommand();
+        Policy persistedPolicy = TestFixtures.activePolicy(UUID.randomUUID(), command.customerId(), command.dueDay());
+        doAnswer(invocation -> persistedPolicy)
+                .when(policyRepositoryPort)
+                .save(any(Policy.class));
+
+        Policy result = createPolicyUseCase.execute(command);
+
+        assertThat(result).isSameAs(persistedPolicy);
     }
 
     @Test

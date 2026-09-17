@@ -1,6 +1,12 @@
 package br.com.insurtech.policybilling.infrastructure.adapter.in.web.config;
 
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.Components;
+import io.swagger.v3.oas.models.security.OAuthFlow;
+import io.swagger.v3.oas.models.security.OAuthFlows;
+import io.swagger.v3.oas.models.security.Scopes;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.servers.Server;
@@ -13,9 +19,19 @@ import java.util.List;
 @Configuration
 public class OpenApiConfig {
 
+    public static final String SECURITY_SCHEME_NAME = "keycloakOAuth2";
+
+    private static final String KEYCLOAK_ISSUER_URI = "http://localhost:8081/realms/policy-realm";
+    private static final String OPENID_SCOPE = "openid";
+    private static final String PROFILE_SCOPE = "profile";
+
     @Bean
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
+                .components(new Components()
+                        .addSecuritySchemes(SECURITY_SCHEME_NAME, keycloakOAuth2SecurityScheme()))
+                .addSecurityItem(new SecurityRequirement()
+                        .addList(SECURITY_SCHEME_NAME, List.of(OPENID_SCOPE, PROFILE_SCOPE)))
                 .servers(List.of(new Server()
                         .url("http://localhost:8080")
                         .description("Ambiente local")))
@@ -34,5 +50,18 @@ public class OpenApiConfig {
                                 Os exemplos nesta documentação mostram payloads válidos e respostas de erro esperadas
                                 para facilitar testes manuais pela interface do Swagger.
                                 """));
+    }
+
+    private SecurityScheme keycloakOAuth2SecurityScheme() {
+        return new SecurityScheme()
+                .type(SecurityScheme.Type.OAUTH2)
+                .description("Autenticação OAuth2 via Keycloak local. Use o botão Authorize do Swagger.")
+                .flows(new OAuthFlows()
+                        .authorizationCode(new OAuthFlow()
+                                .authorizationUrl(KEYCLOAK_ISSUER_URI + "/protocol/openid-connect/auth")
+                                .tokenUrl(KEYCLOAK_ISSUER_URI + "/protocol/openid-connect/token")
+                                .scopes(new Scopes()
+                                        .addString(OPENID_SCOPE, "Identificação OpenID Connect")
+                                        .addString(PROFILE_SCOPE, "Dados básicos do usuário autenticado"))));
     }
 }
