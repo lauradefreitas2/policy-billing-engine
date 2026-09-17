@@ -9,6 +9,7 @@ import br.com.insurtech.policybilling.infrastructure.adapter.in.web.dto.CreatePo
 import br.com.insurtech.policybilling.infrastructure.adapter.out.persistence.entity.PolicyEntity;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 public final class TestFixtures {
@@ -21,6 +22,7 @@ public final class TestFixtures {
     public static final BigDecimal DEVICE_INVOICE_VALUE = new BigDecimal("5999.90");
     public static final BigDecimal MONTHLY_PREMIUM = new BigDecimal("99.90");
     public static final int DUE_DAY = 10;
+    public static final LocalDateTime SUSPENDED_AT = LocalDateTime.of(2026, 6, 11, 0, 0);
 
     private TestFixtures() {
     }
@@ -49,7 +51,8 @@ public final class TestFixtures {
                 CoverageType.NEW_DEVICE_REPLACEMENT,
                 MONTHLY_PREMIUM,
                 dueDay,
-                status
+                status,
+                status == PolicyStatus.SUSPENDED ? SUSPENDED_AT : null
         );
     }
 
@@ -88,7 +91,8 @@ public final class TestFixtures {
                 CoverageType.NEW_DEVICE_REPLACEMENT.name(),
                 MONTHLY_PREMIUM,
                 dueDay,
-                status.name()
+                status.name(),
+                status == PolicyStatus.SUSPENDED ? SUSPENDED_AT : null
         );
     }
 }

@@ -3,6 +3,7 @@ package br.com.insurtech.policybilling.integration;
 import br.com.insurtech.policybilling.TestFixtures;
 import br.com.insurtech.policybilling.application.port.in.CancelOverduePoliciesUseCase;
 import br.com.insurtech.policybilling.application.port.in.ProcessDailyBillingUseCase;
+import br.com.insurtech.policybilling.application.port.in.SuspendOverduePoliciesUseCase;
 import br.com.insurtech.policybilling.application.port.out.PolicyCanceledEvent;
 import br.com.insurtech.policybilling.application.port.out.PolicyEventPublisherPort;
 import br.com.insurtech.policybilling.domain.model.PolicyStatus;
@@ -53,6 +54,9 @@ class PolicyBillingFlowIntegrationTest {
     private CancelOverduePoliciesUseCase cancelOverduePoliciesUseCase;
 
     @Autowired
+    private SuspendOverduePoliciesUseCase suspendOverduePoliciesUseCase;
+
+    @Autowired
     private MeterRegistry meterRegistry;
 
     @MockitoBean
@@ -98,8 +102,8 @@ class PolicyBillingFlowIntegrationTest {
     }
 
     @Test
-    @DisplayName("should process billing then cancel overdue policy and publish cancellation event")
-    void shouldProcessBillingThenCancelOverduePolicyAndPublishCancellationEvent() throws Exception {
+    @DisplayName("should process billing then suspend and cancel overdue policy publishing cancellation event")
+    void shouldProcessBillingThenSuspendAndCancelOverduePolicyPublishingCancellationEvent() throws Exception {
         mockMvc.perform(post("/api/v1/policies")
                         .with(jwt())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -111,10 +115,16 @@ class PolicyBillingFlowIntegrationTest {
         PolicyEntity pendingPolicy = policyRepository.findById(createdPolicy.getId()).orElseThrow();
         assertThat(pendingPolicy.getStatus()).isEqualTo(PolicyStatus.PENDING_PAYMENT.name());
 
-        cancelOverduePoliciesUseCase.execute(LocalDate.of(2026, 6, TestFixtures.DUE_DAY + 10));
+        suspendOverduePoliciesUseCase.execute(LocalDate.of(2026, 6, TestFixtures.DUE_DAY + 1));
+        PolicyEntity suspendedPolicy = policyRepository.findById(createdPolicy.getId()).orElseThrow();
+        assertThat(suspendedPolicy.getStatus()).isEqualTo(PolicyStatus.SUSPENDED.name());
+        assertThat(suspendedPolicy.getSuspendedAt()).isEqualTo(LocalDate.of(2026, 6, TestFixtures.DUE_DAY + 1).atStartOfDay());
+
+        cancelOverduePoliciesUseCase.execute(LocalDate.of(2026, 6, TestFixtures.DUE_DAY + 11));
 
         PolicyEntity canceledPolicy = policyRepository.findById(createdPolicy.getId()).orElseThrow();
         assertThat(canceledPolicy.getStatus()).isEqualTo(PolicyStatus.CANCELED.name());
+        assertThat(canceledPolicy.getSuspendedAt()).isEqualTo(LocalDate.of(2026, 6, TestFixtures.DUE_DAY + 1).atStartOfDay());
 
         ArgumentCaptor<PolicyCanceledEvent> eventCaptor = ArgumentCaptor.forClass(PolicyCanceledEvent.class);
         verify(policyEventPublisherPort).publishPolicyCanceledEvent(eventCaptor.capture());

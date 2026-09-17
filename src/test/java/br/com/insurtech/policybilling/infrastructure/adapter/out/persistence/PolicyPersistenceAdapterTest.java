@@ -57,6 +57,7 @@ class PolicyPersistenceAdapterTest {
         assertThat(persistedEntity.getMonthlyPremium()).isEqualByComparingTo("99.90");
         assertThat(persistedEntity.getDueDay()).isEqualTo(TestFixtures.DUE_DAY);
         assertThat(persistedEntity.getStatus()).isEqualTo("ACTIVE");
+        assertThat(persistedEntity.getSuspendedAt()).isNull();
     }
 
     @Test
@@ -81,6 +82,7 @@ class PolicyPersistenceAdapterTest {
         assertThat(policy.monthlyPremium()).isEqualByComparingTo("99.90");
         assertThat(policy.dueDay()).isEqualTo(15);
         assertThat(policy.status()).isEqualTo(PolicyStatus.PENDING_PAYMENT);
+        assertThat(policy.suspendedAt()).isNull();
     }
 
     @Test
@@ -141,6 +143,25 @@ class PolicyPersistenceAdapterTest {
                 .get()
                 .extracting(PolicyEntity::getStatus)
                 .isEqualTo("PENDING_PAYMENT");
+    }
+
+    @Test
+    @DisplayName("should persist suspension timestamp when policy is suspended")
+    void shouldPersistSuspensionTimestampWhenPolicyIsSuspended() {
+        Policy policy = TestFixtures.activePolicy(UUID.randomUUID(), UUID.randomUUID(), 10);
+        policy.suspendDueToNonPayment(TestFixtures.SUSPENDED_AT);
+
+        Policy savedPolicy = adapter.save(policy);
+
+        assertThat(savedPolicy.status()).isEqualTo(PolicyStatus.SUSPENDED);
+        assertThat(savedPolicy.suspendedAt()).isEqualTo(TestFixtures.SUSPENDED_AT);
+        assertThat(repository.findById(policy.id()))
+                .isPresent()
+                .get()
+                .satisfies(entity -> {
+                    assertThat(entity.getStatus()).isEqualTo("SUSPENDED");
+                    assertThat(entity.getSuspendedAt()).isEqualTo(TestFixtures.SUSPENDED_AT);
+                });
     }
 
     @Test

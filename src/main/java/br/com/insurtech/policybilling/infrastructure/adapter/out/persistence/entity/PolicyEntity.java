@@ -6,6 +6,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -42,6 +43,9 @@ public class PolicyEntity {
     @Column(name = "status", nullable = false)
     private String status;
 
+    @Column(name = "suspended_at")
+    private LocalDateTime suspendedAt;
+
     protected PolicyEntity() {
     }
 
@@ -57,6 +61,34 @@ public class PolicyEntity {
             int dueDay,
             String status
     ) {
+        this(
+                id,
+                customerId,
+                deviceBrand,
+                deviceModel,
+                deviceImei,
+                deviceInvoiceValue,
+                coverage,
+                monthlyPremium,
+                dueDay,
+                status,
+                null
+        );
+    }
+
+    public PolicyEntity(
+            UUID id,
+            UUID customerId,
+            String deviceBrand,
+            String deviceModel,
+            String deviceImei,
+            BigDecimal deviceInvoiceValue,
+            String coverage,
+            BigDecimal monthlyPremium,
+            int dueDay,
+            String status,
+            LocalDateTime suspendedAt
+    ) {
         this.id = id;
         this.customerId = customerId;
         this.deviceBrand = deviceBrand;
@@ -67,6 +99,7 @@ public class PolicyEntity {
         this.monthlyPremium = monthlyPremium;
         this.dueDay = dueDay;
         this.status = status;
+        this.suspendedAt = suspendedAt;
     }
 
     public UUID getId() {
@@ -107,5 +140,9 @@ public class PolicyEntity {
 
     public String getStatus() {
         return status;
+    }
+
+    public LocalDateTime getSuspendedAt() {
+        return suspendedAt;
     }
 }

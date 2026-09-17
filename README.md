@@ -4,7 +4,7 @@ O **Policy Billing Engine** é um serviço backend para uma Insurtech focada em 
 
 O projeto é construído com **Java 21** e **Spring Boot**, seguindo **Arquitetura Hexagonal (Ports & Adapters)**. O domínio permanece independente de Spring, JPA, Quartz, APIs web e ferramentas de observabilidade.
 
-Versão atual do projeto: **1.2.0-SNAPSHOT**.
+Versão atual do projeto: **1.3.0-SNAPSHOT**.
 
 ## Funcionalidades Implementadas
 
@@ -23,10 +23,12 @@ Versão atual do projeto: **1.2.0-SNAPSHOT**.
 - Status suportados para apólice:
   - `ACTIVE`
   - `PENDING_PAYMENT`
+  - `SUSPENDED`
   - `CANCELED`
 - Toda apólice nasce ativa com cobertura de reposição por aparelho novo.
 - Apólices ativas podem ser marcadas como pendentes de pagamento.
-- Apólices pendentes de pagamento podem ser canceladas por inadimplência.
+- Apólices ativas ou pendentes de pagamento podem ser suspensas por inadimplência a partir de 1 dia de atraso.
+- Apólices suspensas por 10 dias ou mais podem ser canceladas por inadimplência.
 - O cancelamento comum é idempotente para apólices já canceladas.
 
 ### Persistência
@@ -34,6 +36,7 @@ Versão atual do projeto: **1.2.0-SNAPSHOT**.
 - Adaptador de persistência com Spring Data JPA.
 - Versionamento de schema com Flyway.
 - Migração inicial `V1__create_policies_table.sql` para criação da tabela `policies`.
+- Migração `V2__add_suspended_at_column.sql` para registrar `suspended_at`.
 - Hibernate configurado com `ddl-auto=validate`; a aplicação valida o schema, mas não cria nem altera tabelas automaticamente.
 - Driver PostgreSQL configurado para execução local/runtime.
 - H2 configurado para testes de integração.
@@ -50,15 +53,24 @@ Versão atual do projeto: **1.2.0-SNAPSHOT**.
 - O caso de uso diário busca apólices ativas vencendo no dia atual.
 - Apólices devidas são marcadas como `PENDING_PAYMENT` e persistidas.
 
+### Automação de Suspensão por Inadimplência
+
+- `SuspensionJob` agendado com Quartz.
+- Agendamento local: a cada 40 segundos.
+- Referência de cron para produção: `0 5 0 * * ?`.
+- O caso de uso busca apólices `ACTIVE` e `PENDING_PAYMENT`.
+- Apólices com pelo menos 1 dia de atraso são marcadas como `SUSPENDED`.
+- A data/hora da suspensão é registrada em `suspended_at`.
+
 ### Automação de Cancelamento por Inadimplência
 
 - `CancellationJob` agendado com Quartz.
 - Agendamento local: a cada 45 segundos.
 - Referência de cron para produção: `0 15 0 * * ?`.
-- Apólices em `PENDING_PAYMENT` são avaliadas em Java.
-- Apólices com atraso de 10 dias ou mais são canceladas.
+- Apólices em `SUSPENDED` são avaliadas em Java.
+- Apólices suspensas por 10 dias ou mais são canceladas.
 - Ao cancelar uma apólice por inadimplência, a aplicação publica um evento `PolicyCanceledEvent`.
-- O cálculo de atraso com virada de mês está coberto por testes.
+- O cálculo de atraso e de tempo em suspensão está coberto por testes.
 
 ### Eventos e Mensageria
 
@@ -131,6 +143,7 @@ Contém os casos de uso e as portas da aplicação:
 
 - `CreatePolicyUseCase`
 - `ProcessDailyBillingUseCase`
+- `SuspendOverduePoliciesUseCase`
 - `CancelOverduePoliciesUseCase`
 - `PolicyRepositoryPort`
 - `PolicyEventPublisherPort`

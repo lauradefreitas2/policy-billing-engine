@@ -2,6 +2,7 @@ package br.com.insurtech.policybilling.domain.model;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -16,6 +17,7 @@ public final class Policy {
     private final BigDecimal monthlyPremium;
     private final int dueDay;
     private PolicyStatus status;
+    private LocalDateTime suspendedAt;
 
     public static Policy issue(
             UUID id,
@@ -31,7 +33,8 @@ public final class Policy {
                 CoverageType.NEW_DEVICE_REPLACEMENT,
                 monthlyPremium,
                 dueDay,
-                PolicyStatus.ACTIVE
+                PolicyStatus.ACTIVE,
+                null
         );
     }
 
@@ -44,6 +47,19 @@ public final class Policy {
             int dueDay,
             PolicyStatus status
     ) {
+        this(id, customerId, device, coverage, monthlyPremium, dueDay, status, null);
+    }
+
+    public Policy(
+            UUID id,
+            UUID customerId,
+            MobileDevice device,
+            CoverageType coverage,
+            BigDecimal monthlyPremium,
+            int dueDay,
+            PolicyStatus status,
+            LocalDateTime suspendedAt
+    ) {
         this.id = requireNonNull(id, "id");
         this.customerId = requireNonNull(customerId, "customerId");
         this.device = requireNonNull(device, "device");
@@ -51,13 +67,15 @@ public final class Policy {
         this.monthlyPremium = validateMonthlyPremium(monthlyPremium);
         this.dueDay = validateDueDay(dueDay);
         this.status = requireNonNull(status, "status");
+        this.suspendedAt = validateSuspendedAt(status, suspendedAt);
     }
 
     public void markAsPendingPayment() {
-        if (status == PolicyStatus.CANCELED) {
-            throw new DomainException("Canceled policies cannot be marked as pending payment");
+        if (status == PolicyStatus.CANCELED || status == PolicyStatus.SUSPENDED) {
+            throw new DomainException("Canceled or suspended policies cannot be marked as pending payment");
         }
         this.status = PolicyStatus.PENDING_PAYMENT;
+        this.suspendedAt = null;
     }
 
     public void confirmPayment() {
@@ -65,6 +83,7 @@ public final class Policy {
             throw new DomainException("Canceled policies cannot be activated after payment confirmation");
         }
         this.status = PolicyStatus.ACTIVE;
+        this.suspendedAt = null;
     }
 
     public void cancel() {
@@ -74,9 +93,18 @@ public final class Policy {
         this.status = PolicyStatus.CANCELED;
     }
 
+    public void suspendDueToNonPayment(LocalDateTime suspendedAt) {
+        requireNonNull(suspendedAt, "suspendedAt");
+        if (status != PolicyStatus.ACTIVE && status != PolicyStatus.PENDING_PAYMENT) {
+            throw new DomainException("Only active or pending payment policies can be suspended due to non-payment");
+        }
+        this.status = PolicyStatus.SUSPENDED;
+        this.suspendedAt = suspendedAt;
+    }
+
     public void cancelDueToNonPayment() {
-        if (status != PolicyStatus.PENDING_PAYMENT) {
-            throw new DomainException("Only pending payment policies can be canceled due to non-payment");
+        if (status != PolicyStatus.SUSPENDED) {
+            throw new DomainException("Only suspended policies can be canceled due to non-payment");
         }
         this.status = PolicyStatus.CANCELED;
     }
@@ -101,6 +129,13 @@ public final class Policy {
             throw new DomainException("dueDay must be between 1 and 28");
         }
         return dueDay;
+    }
+
+    private static LocalDateTime validateSuspendedAt(PolicyStatus status, LocalDateTime suspendedAt) {
+        if (status == PolicyStatus.SUSPENDED && suspendedAt == null) {
+            throw new DomainException("suspendedAt must not be null when policy is suspended");
+        }
+        return suspendedAt;
     }
 
     public UUID id() {
@@ -129,6 +164,10 @@ public final class Policy {
 
     public PolicyStatus status() {
         return status;
+    }
+
+    public LocalDateTime suspendedAt() {
+        return suspendedAt;
     }
 
     public boolean isDueForBilling(LocalDate currentDate) {
