@@ -195,6 +195,39 @@ Swagger UI:
 http://localhost:8080/swagger-ui.html
 ```
 
+### Como Testar a API
+
+1. Suba a infraestrutura local:
+
+```bash
+docker compose up -d
+```
+
+2. Execute a aplicação:
+
+```bash
+./mvnw spring-boot:run
+```
+
+3. Abra o Swagger UI:
+
+```text
+http://localhost:8080/swagger-ui.html
+```
+
+4. Use o endpoint `POST /api/v1/policies` com o exemplo pronto do Swagger.
+
+5. Para criar uma apólice válida, informe:
+
+- `deviceImei` com exatamente 15 dígitos.
+- `dueDay` entre 1 e 28.
+- `deviceInvoiceValue` maior que zero.
+- `monthlyPremium` maior que zero.
+
+6. Confira os exemplos de erro `400` e `422` no Swagger para entender validações de entrada e regras de domínio.
+
+Observação: os jobs Quartz processam faturamento e cancelamento automaticamente em intervalos curtos no ambiente local. Quando uma apólice é cancelada por inadimplência, um evento `PolicyCanceledEvent` é publicado no RabbitMQ.
+
 Health da aplicação:
 
 ```text

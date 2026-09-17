@@ -73,11 +73,11 @@ public interface PolicyApi {
                                               "invalid_params": [
                                                 {
                                                   "field": "deviceImei",
-                                                  "message": "must match \\"\\\\d{15}\\""
+                                                  "message": "O IMEI deve conter exatamente 15 dígitos numéricos."
                                                 },
                                                 {
                                                   "field": "dueDay",
-                                                  "message": "must be less than or equal to 28"
+                                                  "message": "O dia de vencimento deve estar entre 1 e 28."
                                                 }
                                               ]
                                             }
@@ -98,7 +98,7 @@ public interface PolicyApi {
                                               "type": "about:blank",
                                               "title": "Unprocessable Entity",
                                               "status": 422,
-                                              "detail": "monthlyPremium must be greater than zero",
+                                              "detail": "O prêmio mensal da apólice deve ser maior que zero.",
                                               "instance": "/api/v1/policies"
                                             }
                                             """
@@ -118,7 +118,7 @@ public interface PolicyApi {
                                               "type": "about:blank",
                                               "title": "Internal Server Error",
                                               "status": 500,
-                                              "detail": "Unexpected system error",
+                                              "detail": "Ocorreu um erro inesperado ao processar a solicitação.",
                                               "instance": "/api/v1/policies"
                                             }
                                             """
