@@ -4,7 +4,7 @@ O **Policy Billing Engine** é um serviço backend para uma Insurtech focada em 
 
 O projeto é construído com **Java 21** e **Spring Boot**, seguindo **Arquitetura Hexagonal (Ports & Adapters)**. O domínio permanece independente de Spring, JPA, Quartz, APIs web e ferramentas de observabilidade.
 
-Versão atual do projeto: **1.1.0-SNAPSHOT**.
+Versão atual do projeto: **1.2.0-SNAPSHOT**.
 
 ## Funcionalidades Implementadas
 
@@ -68,6 +68,20 @@ Versão atual do projeto: **1.1.0-SNAPSHOT**.
 - Routing key configurada: `policy.canceled.key`.
 - Mensagens trafegam em JSON com `Jackson2JsonMessageConverter`.
 - O domínio e os casos de uso dependem apenas da porta `PolicyEventPublisherPort`; o adapter RabbitMQ fica isolado na infraestrutura.
+
+### Segurança
+
+- API protegida como OAuth2 Resource Server com validação de JWT.
+- Authorization Server local com Keycloak via Docker Compose.
+- Swagger UI integrado ao Keycloak com fluxo OAuth2 Authorization Code + PKCE.
+- Swagger/OpenAPI liberado para facilitar testes locais:
+  - `/v3/api-docs/**`
+  - `/swagger-ui/**`
+  - `/swagger-ui.html`
+- Actuator liberado para health checks e observabilidade local:
+  - `/actuator/**`
+- Rotas da API, como `/api/v1/**`, exigem autenticação Bearer JWT.
+- Issuer URI configurado para o realm local `policy-realm`.
 
 ### Observabilidade
 
@@ -140,11 +154,14 @@ Contém os adaptadores e configurações técnicas:
 | Java 21 | Runtime e versão da linguagem |
 | Spring Boot 3.5.x | Framework da aplicação |
 | Spring Web | API REST |
+| Spring Security | Proteção das rotas HTTP |
+| OAuth2 Resource Server | Validação de JWT |
 | Spring Data JPA | Persistência |
 | Spring AMQP | Publicação de eventos no RabbitMQ |
 | Flyway | Versionamento de schema do banco |
 | PostgreSQL | Banco local/runtime |
 | RabbitMQ | Broker de mensagens para eventos |
+| Keycloak | Authorization Server local para emissão de JWT |
 | H2 | Banco em memória para testes |
 | Quartz Scheduler | Jobs automatizados |
 | Springdoc OpenAPI | Documentação da API |
@@ -152,11 +169,11 @@ Contém os adaptadores e configurações técnicas:
 | Micrometer Prometheus | Exportação de métricas para Prometheus |
 | JUnit 5 | Testes automatizados |
 | Mockito | Test doubles |
-| Docker Compose | PostgreSQL e RabbitMQ locais |
+| Docker Compose | PostgreSQL, RabbitMQ e Keycloak locais |
 
 ## Como Executar Localmente
 
-Subir PostgreSQL e RabbitMQ:
+Subir PostgreSQL, RabbitMQ e Keycloak:
 
 ```bash
 docker compose up -d
@@ -189,6 +206,30 @@ Credenciais locais:
 guest / guest
 ```
 
+Painel administrativo do Keycloak:
+
+```text
+http://localhost:8081
+```
+
+Credenciais locais:
+
+```text
+admin / admin
+```
+
+Realm importado automaticamente:
+
+```text
+policy-realm
+```
+
+Usuário de teste:
+
+```text
+teste / 123
+```
+
 Swagger UI:
 
 ```text
@@ -215,16 +256,18 @@ docker compose up -d
 http://localhost:8080/swagger-ui.html
 ```
 
-4. Use o endpoint `POST /api/v1/policies` com o exemplo pronto do Swagger.
+4. Clique em `Authorize` no Swagger, faça login no Keycloak com `teste / 123` e autorize o client `policy-engine-swagger`.
 
-5. Para criar uma apólice válida, informe:
+5. Use o endpoint `POST /api/v1/policies` com o exemplo pronto do Swagger. O Swagger enviará o header `Authorization: Bearer <token>` automaticamente.
+
+6. Para criar uma apólice válida, informe:
 
 - `deviceImei` com exatamente 15 dígitos.
 - `dueDay` entre 1 e 28.
 - `deviceInvoiceValue` maior que zero.
 - `monthlyPremium` maior que zero.
 
-6. Confira os exemplos de erro `400` e `422` no Swagger para entender validações de entrada e regras de domínio.
+7. Confira os exemplos de erro `400`, `401` e `422` no Swagger para entender autenticação, validações de entrada e regras de domínio.
 
 Observação: os jobs Quartz processam faturamento e cancelamento automaticamente em intervalos curtos no ambiente local. Quando uma apólice é cancelada por inadimplência, um evento `PolicyCanceledEvent` é publicado no RabbitMQ.
 
@@ -267,6 +310,7 @@ A cobertura atual inclui:
 - Automação de faturamento.
 - Automação de cancelamento por inadimplência.
 - Publicação de evento quando uma apólice é cancelada por inadimplência.
+- Regras de segurança HTTP.
 - Contratos do controller web.
 - Adaptador de persistência JPA.
 - Execução das migrations Flyway em banco H2 durante os testes.
@@ -277,7 +321,7 @@ A cobertura atual inclui:
 
 - Integração com gateway de pagamento real para cobranças recorrentes.
 - Publicação de eventos para tentativas de cobrança e resultados de pagamento.
-- Configuração OAuth2 Resource Server com validação JWT e RBAC.
+- RBAC baseado em roles/scopes do JWT.
 - Política de retry para falhas de pagamento.
 - Fluxo de suspensão de apólice antes do cancelamento definitivo.
 - Novas migrations Flyway conforme o modelo de dados evoluir.
@@ -296,6 +340,7 @@ Este projeto demonstra práticas de engenharia backend aplicadas a um domínio r
 - Jobs automatizados.
 - Adaptador real de persistência.
 - Publicação de eventos com RabbitMQ via porta de saída.
+- Proteção HTTP com OAuth2 Resource Server e JWT.
 - Versionamento de banco com Flyway.
 - Testes em múltiplas camadas.
 - Observabilidade orientada a produção.

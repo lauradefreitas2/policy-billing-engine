@@ -3,8 +3,10 @@ package br.com.insurtech.policybilling.domain.model;
 import br.com.insurtech.policybilling.domain.exception.DomainException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -13,7 +15,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@ExtendWith(MockitoExtension.class)
 class PolicyTest {
 
     @Test
@@ -49,63 +50,41 @@ class PolicyTest {
         assertThat(policy.dueDay()).isEqualTo(10);
     }
 
-    @Test
-    @DisplayName("should create policy when due day is at lower boundary")
-    void shouldCreatePolicyWhenDueDayAtLowerBoundary() {
-        Policy policy = createValidPolicy(1, PolicyStatus.ACTIVE);
+    @ParameterizedTest
+    @ValueSource(ints = {1, 28})
+    @DisplayName("should accept due day boundaries")
+    void shouldAcceptDueDayBoundaries(int dueDay) {
+        Policy policy = createValidPolicy(dueDay, PolicyStatus.ACTIVE);
 
-        assertThat(policy.dueDay()).isEqualTo(1);
+        assertThat(policy.dueDay()).isEqualTo(dueDay);
     }
 
-    @Test
-    @DisplayName("should create policy when due day is at upper boundary")
-    void shouldCreatePolicyWhenDueDayAtUpperBoundary() {
-        Policy policy = createValidPolicy(28, PolicyStatus.ACTIVE);
-
-        assertThat(policy.dueDay()).isEqualTo(28);
-    }
-
-    @Test
-    @DisplayName("should throw DomainException when due day is below lower boundary")
-    void shouldThrowExceptionWhenDueDayIsInvalidBelowLowerBoundary() {
-        assertThatThrownBy(() -> createValidPolicy(0, PolicyStatus.ACTIVE))
+    @ParameterizedTest
+    @ValueSource(ints = {0, 29})
+    @DisplayName("should reject due day outside allowed range")
+    void shouldRejectDueDayOutsideAllowedRange(int dueDay) {
+        assertThatThrownBy(() -> createValidPolicy(dueDay, PolicyStatus.ACTIVE))
                 .isInstanceOf(DomainException.class)
                 .hasMessage("dueDay must be between 1 and 28");
     }
 
-    @Test
-    @DisplayName("should throw DomainException when due day is above upper boundary")
-    void shouldThrowExceptionWhenDueDayIsInvalidAboveUpperBoundary() {
-        assertThatThrownBy(() -> createValidPolicy(29, PolicyStatus.ACTIVE))
-                .isInstanceOf(DomainException.class)
-                .hasMessage("dueDay must be between 1 and 28");
-    }
+    @ParameterizedTest
+    @CsvSource({
+            "ACTIVE,15,true",
+            "ACTIVE,16,false",
+            "PENDING_PAYMENT,15,false",
+            "CANCELED,15,false"
+    })
+    @DisplayName("should identify whether policy is due for billing based on status and day")
+    void shouldIdentifyWhetherPolicyIsDueForBillingBasedOnStatusAndDay(
+            PolicyStatus status,
+            int billingDay,
+            boolean expectedResult
+    ) {
+        Policy policy = createValidPolicy(15, status);
+        LocalDate billingDate = LocalDate.of(2026, 6, billingDay);
 
-    @Test
-    @DisplayName("should return true when policy is active and due date matches")
-    void shouldReturnTrueWhenPolicyIsActiveAndDueDateMatches() {
-        Policy policy = createValidPolicy(15, PolicyStatus.ACTIVE);
-        LocalDate billingDate = LocalDate.of(2026, 6, 15);
-
-        assertThat(policy.isDueForBilling(billingDate)).isTrue();
-    }
-
-    @Test
-    @DisplayName("should return false when policy is pending payment even if due date matches")
-    void shouldReturnFalseWhenPolicyIsPendingPaymentEvenIfDueDateMatches() {
-        Policy policy = createValidPolicy(15, PolicyStatus.PENDING_PAYMENT);
-        LocalDate billingDate = LocalDate.of(2026, 6, 15);
-
-        assertThat(policy.isDueForBilling(billingDate)).isFalse();
-    }
-
-    @Test
-    @DisplayName("should return false when policy is canceled even if due date matches")
-    void shouldReturnFalseWhenPolicyIsCanceledEvenIfDueDateMatches() {
-        Policy policy = createValidPolicy(15, PolicyStatus.CANCELED);
-        LocalDate billingDate = LocalDate.of(2026, 6, 15);
-
-        assertThat(policy.isDueForBilling(billingDate)).isFalse();
+        assertThat(policy.isDueForBilling(billingDate)).isEqualTo(expectedResult);
     }
 
     @Test
@@ -158,20 +137,11 @@ class PolicyTest {
                 .hasMessage("Canceled policies cannot be marked as pending payment");
     }
 
-    @Test
-    @DisplayName("should cancel policy from active")
-    void shouldCancelPolicyFromActive() {
-        Policy policy = createValidPolicy(20, PolicyStatus.ACTIVE);
-
-        policy.cancel();
-
-        assertThat(policy.status()).isEqualTo(PolicyStatus.CANCELED);
-    }
-
-    @Test
-    @DisplayName("should cancel policy from pending payment")
-    void shouldCancelPolicyFromPendingPayment() {
-        Policy policy = createValidPolicy(20, PolicyStatus.PENDING_PAYMENT);
+    @ParameterizedTest
+    @EnumSource(value = PolicyStatus.class, names = {"ACTIVE", "PENDING_PAYMENT", "CANCELED"})
+    @DisplayName("should move any status to canceled when cancellation is generic")
+    void shouldMoveAnyStatusToCanceledWhenCancellationIsGeneric(PolicyStatus initialStatus) {
+        Policy policy = createValidPolicy(20, initialStatus);
 
         policy.cancel();
 

@@ -1,16 +1,13 @@
 package br.com.insurtech.policybilling.infrastructure.observability;
 
+import br.com.insurtech.policybilling.TestFixtures;
 import br.com.insurtech.policybilling.application.port.in.CreatePolicyCommand;
 import br.com.insurtech.policybilling.application.port.in.CreatePolicyUseCase;
 import br.com.insurtech.policybilling.domain.exception.DomainException;
-import br.com.insurtech.policybilling.domain.model.MobileDevice;
 import br.com.insurtech.policybilling.domain.model.Policy;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.math.BigDecimal;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -27,10 +24,12 @@ class ObservedCreatePolicyUseCaseTest {
     @DisplayName("should increment policies created counter after successful creation")
     void shouldIncrementPoliciesCreatedCounterAfterSuccessfulCreation() {
         CreatePolicyCommand command = buildCommand();
-        when(delegate.execute(command)).thenReturn(buildPolicy(command));
+        Policy policy = TestFixtures.activePolicy();
+        when(delegate.execute(command)).thenReturn(policy);
 
-        useCase.execute(command);
+        Policy result = useCase.execute(command);
 
+        assertThat(result).isSameAs(policy);
         assertThat(meterRegistry.counter("policies.created").count()).isEqualTo(1.0);
     }
 
@@ -47,29 +46,18 @@ class ObservedCreatePolicyUseCaseTest {
     }
 
     private static CreatePolicyCommand buildCommand() {
-        return new CreatePolicyCommand(
-                UUID.randomUUID(),
-                "Apple",
-                "iPhone 15",
-                "123456789012345",
-                new BigDecimal("5999.90"),
-                new BigDecimal("99.90"),
-                10
-        );
+        return TestFixtures.validCreatePolicyCommand();
     }
 
-    private static Policy buildPolicy(CreatePolicyCommand command) {
-        return Policy.issue(
-                UUID.randomUUID(),
-                command.customerId(),
-                new MobileDevice(
-                        command.deviceBrand(),
-                        command.deviceModel(),
-                        command.deviceImei(),
-                        command.deviceInvoiceValue()
-                ),
-                command.monthlyPremium(),
-                command.dueDay()
-        );
+    @Test
+    @DisplayName("should reject null dependencies")
+    void shouldRejectNullDependencies() {
+        assertThatThrownBy(() -> new ObservedCreatePolicyUseCase(null, meterRegistry))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("delegate must not be null");
+
+        assertThatThrownBy(() -> new ObservedCreatePolicyUseCase(delegate, null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("meterRegistry must not be null");
     }
 }

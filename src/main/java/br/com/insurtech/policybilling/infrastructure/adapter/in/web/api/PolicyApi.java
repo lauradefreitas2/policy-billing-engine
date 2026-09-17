@@ -106,6 +106,11 @@ public interface PolicyApi {
                     )
             ),
             @ApiResponse(
+                    responseCode = "401",
+                    description = "Token JWT ausente, expirado ou inválido. Autentique-se pelo botão Authorize do Swagger e envie a requisição novamente.",
+                    content = @Content
+            ),
+            @ApiResponse(
                     responseCode = "500",
                     description = "Erro inesperado no servidor.",
                     content = @Content(

@@ -1,5 +1,6 @@
 package br.com.insurtech.policybilling.infrastructure.adapter.in.web.controller;
 
+import br.com.insurtech.policybilling.TestFixtures;
 import br.com.insurtech.policybilling.application.port.in.CreatePolicyCommand;
 import br.com.insurtech.policybilling.application.port.in.CreatePolicyUseCase;
 import br.com.insurtech.policybilling.domain.exception.DomainException;
@@ -18,13 +19,14 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
-import java.util.Objects;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -48,35 +50,35 @@ class PolicyControllerTest {
     @MockitoBean
     private CreatePolicyUseCase createPolicyUseCase;
 
+    @MockitoBean
+    private JwtDecoder jwtDecoder;
+
     @Test
     @DisplayName("should return 201 Created when request is valid")
     void shouldReturn201CreatedWhenRequestIsValid() throws Exception {
-        UUID customerId = UUID.randomUUID();
-        CreatePolicyRequest request = new CreatePolicyRequest(
-                customerId,
-                "TestBrand",
-                "TestModel",
-                "123456789012345",
-                new BigDecimal("399.99"),
-                new BigDecimal("99.90"),
-                10
-        );
+        UUID customerId = TestFixtures.CUSTOMER_ID;
+        CreatePolicyRequest request = TestFixtures.validCreatePolicyRequest();
 
         Policy savedPolicy = new Policy(
                 UUID.randomUUID(),
                 customerId,
-                new MobileDevice("TestBrand", "TestModel", "123456789012345", new BigDecimal("399.99")),
+                new MobileDevice(
+                        TestFixtures.DEVICE_BRAND,
+                        TestFixtures.DEVICE_MODEL,
+                        TestFixtures.DEVICE_IMEI,
+                        TestFixtures.DEVICE_INVOICE_VALUE
+                ),
                 CoverageType.NEW_DEVICE_REPLACEMENT,
-                new BigDecimal("99.90"),
-                10,
+                TestFixtures.MONTHLY_PREMIUM,
+                TestFixtures.DUE_DAY,
                 PolicyStatus.ACTIVE
         );
 
         when(createPolicyUseCase.execute(any(CreatePolicyCommand.class))).thenReturn(savedPolicy);
 
         mockMvc.perform(post("/api/v1/policies")
-                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON, "content type must not be null"))
-                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(request), "request body must not be null")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(savedPolicy.id().toString()))
                 .andExpect(jsonPath("$.customerId").value(customerId.toString()))
@@ -99,21 +101,31 @@ class PolicyControllerTest {
     @DisplayName("should return 400 Bad Request when validation fails")
     void shouldReturn400BadRequestWhenValidationFails() throws Exception {
         CreatePolicyRequest invalidRequest = new CreatePolicyRequest(
-                UUID.randomUUID(),
+                null,
                 "",
-                "TestModel",
-                "123456789012345",
-                new BigDecimal("399.99"),
+                " ",
+                "12345678901234A",
+                BigDecimal.ZERO,
                 new BigDecimal("-10.00"),
-                0
+                29
         );
 
         mockMvc.perform(post("/api/v1/policies")
-                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON, "content type must not be null"))
-                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(invalidRequest), "request body must not be null")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").exists())
-                .andExpect(jsonPath("$.invalid_params").isArray());
+                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.detail").value("Validation failed"))
+                .andExpect(jsonPath("$.invalid_params").isArray())
+                .andExpect(jsonPath("$.invalid_params[*].field", containsInAnyOrder(
+                        "customerId",
+                        "deviceBrand",
+                        "deviceModel",
+                        "deviceImei",
+                        "deviceInvoiceValue",
+                        "monthlyPremium",
+                        "dueDay"
+                )));
 
         verifyNoInteractions(createPolicyUseCase);
     }
@@ -132,10 +144,11 @@ class PolicyControllerTest {
         );
 
         mockMvc.perform(post("/api/v1/policies")
-                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON, "content type must not be null"))
-                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(invalidRequest), "request body must not be null")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.invalid_params").isArray());
+                .andExpect(jsonPath("$.invalid_params").isArray())
+                .andExpect(jsonPath("$.invalid_params[0].field").value("deviceImei"));
 
         verifyNoInteractions(createPolicyUseCase);
     }
@@ -158,9 +171,21 @@ class PolicyControllerTest {
                 .thenThrow(new DomainException("Custom domain error"));
 
         mockMvc.perform(post("/api/v1/policies")
-                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON, "content type must not be null"))
-                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(request), "request body must not be null")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.title").value("Unprocessable Entity"))
                 .andExpect(jsonPath("$.detail").value("Custom domain error"));
+    }
+
+    @Test
+    @DisplayName("should return 400 Bad Request when body is malformed JSON")
+    void shouldReturn400BadRequestWhenBodyIsMalformedJson() throws Exception {
+        mockMvc.perform(post("/api/v1/policies")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"customerId\":"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(createPolicyUseCase);
     }
 }
