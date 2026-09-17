@@ -186,20 +186,26 @@ Contém os adaptadores e configurações técnicas:
 
 ## Como Executar Localmente
 
-Subir PostgreSQL, RabbitMQ e Keycloak:
+Subir PostgreSQL, RabbitMQ, Keycloak e a aplicação Java:
 
 ```bash
-docker compose up -d
+docker compose up --build
 ```
 
 Se o banco local já tiver tabelas criadas por versões antigas com Hibernate `ddl-auto=update`, limpe o volume antes de subir novamente:
 
 ```bash
 docker compose down -v
-docker compose up -d
+docker compose up --build
 ```
 
-Executar a aplicação:
+Se preferir executar a aplicação fora do Docker durante o desenvolvimento, suba apenas a infraestrutura:
+
+```bash
+docker compose up -d postgres rabbitmq keycloak
+```
+
+Depois execute a aplicação localmente:
 
 ```bash
 ./mvnw spring-boot:run
@@ -251,36 +257,30 @@ http://localhost:8080/swagger-ui.html
 
 ### Como Testar a API
 
-1. Suba a infraestrutura local:
+1. Suba o ecossistema local:
 
 ```bash
-docker compose up -d
+docker compose up --build
 ```
 
-2. Execute a aplicação:
-
-```bash
-./mvnw spring-boot:run
-```
-
-3. Abra o Swagger UI:
+2. Abra o Swagger UI:
 
 ```text
 http://localhost:8080/swagger-ui.html
 ```
 
-4. Clique em `Authorize` no Swagger, faça login no Keycloak com `teste / 123` e autorize o client `policy-engine-swagger`.
+3. Clique em `Authorize` no Swagger, faça login no Keycloak com `teste / 123` e autorize o client `policy-engine-swagger`.
 
-5. Use o endpoint `POST /api/v1/policies` com o exemplo pronto do Swagger. O Swagger enviará o header `Authorization: Bearer <token>` automaticamente.
+4. Use o endpoint `POST /api/v1/policies` com o exemplo pronto do Swagger. O Swagger enviará o header `Authorization: Bearer <token>` automaticamente.
 
-6. Para criar uma apólice válida, informe:
+5. Para criar uma apólice válida, informe:
 
 - `deviceImei` com exatamente 15 dígitos.
 - `dueDay` entre 1 e 28.
 - `deviceInvoiceValue` maior que zero.
 - `monthlyPremium` maior que zero.
 
-7. Confira os exemplos de erro `400`, `401` e `422` no Swagger para entender autenticação, validações de entrada e regras de domínio.
+6. Confira os exemplos de erro `400`, `401` e `422` no Swagger para entender autenticação, validações de entrada e regras de domínio.
 
 Observação: os jobs Quartz processam faturamento e cancelamento automaticamente em intervalos curtos no ambiente local. Quando uma apólice é cancelada por inadimplência, um evento `PolicyCanceledEvent` é publicado no RabbitMQ.
 
