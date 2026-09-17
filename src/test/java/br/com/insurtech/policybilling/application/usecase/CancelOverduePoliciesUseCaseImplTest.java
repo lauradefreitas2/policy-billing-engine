@@ -1,5 +1,7 @@
 package br.com.insurtech.policybilling.application.usecase;
 
+import br.com.insurtech.policybilling.application.port.out.PolicyCanceledEvent;
+import br.com.insurtech.policybilling.application.port.out.PolicyEventPublisherPort;
 import br.com.insurtech.policybilling.application.port.out.PolicyRepositoryPort;
 import br.com.insurtech.policybilling.domain.model.CoverageType;
 import br.com.insurtech.policybilling.domain.model.MobileDevice;
@@ -8,6 +10,7 @@ import br.com.insurtech.policybilling.domain.model.PolicyStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -29,6 +32,9 @@ class CancelOverduePoliciesUseCaseImplTest {
 
     @Mock
     private PolicyRepositoryPort policyRepositoryPort;
+
+    @Mock
+    private PolicyEventPublisherPort policyEventPublisherPort;
 
     @InjectMocks
     private CancelOverduePoliciesUseCaseImpl cancelOverduePoliciesUseCase;
@@ -53,6 +59,30 @@ class CancelOverduePoliciesUseCaseImplTest {
         verify(policyRepositoryPort, times(2)).save(any(Policy.class));
         verify(policyRepositoryPort).save(firstPolicy);
         verify(policyRepositoryPort).save(secondPolicy);
+        verify(policyEventPublisherPort, times(2)).publishPolicyCanceledEvent(any(PolicyCanceledEvent.class));
+    }
+
+    @Test
+    @DisplayName("should publish policy canceled event after saving canceled policy")
+    void shouldPublishPolicyCanceledEventAfterSavingCanceledPolicy() {
+        // Given
+        LocalDate currentDate = LocalDate.of(2026, 6, 20);
+        Policy policy = buildPendingPaymentPolicy(10);
+        when(policyRepositoryPort.findByStatus(PolicyStatus.PENDING_PAYMENT))
+                .thenReturn(List.of(policy));
+
+        // When
+        cancelOverduePoliciesUseCase.execute(currentDate);
+
+        // Then
+        ArgumentCaptor<PolicyCanceledEvent> eventCaptor = ArgumentCaptor.forClass(PolicyCanceledEvent.class);
+        verify(policyRepositoryPort).save(policy);
+        verify(policyEventPublisherPort).publishPolicyCanceledEvent(eventCaptor.capture());
+
+        PolicyCanceledEvent event = eventCaptor.getValue();
+        assertThat(event.policyId()).isEqualTo(policy.id());
+        assertThat(event.customerId()).isEqualTo(policy.customerId());
+        assertThat(event.canceledAt()).isNotNull();
     }
 
     @Test
@@ -71,6 +101,7 @@ class CancelOverduePoliciesUseCaseImplTest {
         assertThat(policy.status()).isEqualTo(PolicyStatus.PENDING_PAYMENT);
         verify(policyRepositoryPort).findByStatus(PolicyStatus.PENDING_PAYMENT);
         verify(policyRepositoryPort, never()).save(policy);
+        verify(policyEventPublisherPort, never()).publishPolicyCanceledEvent(any(PolicyCanceledEvent.class));
     }
 
     @Test
@@ -89,6 +120,7 @@ class CancelOverduePoliciesUseCaseImplTest {
         assertThat(policy.status()).isEqualTo(PolicyStatus.CANCELED);
         verify(policyRepositoryPort).findByStatus(PolicyStatus.PENDING_PAYMENT);
         verify(policyRepositoryPort).save(policy);
+        verify(policyEventPublisherPort).publishPolicyCanceledEvent(any(PolicyCanceledEvent.class));
     }
 
     @Test
@@ -105,6 +137,7 @@ class CancelOverduePoliciesUseCaseImplTest {
         // Then
         verify(policyRepositoryPort).findByStatus(PolicyStatus.PENDING_PAYMENT);
         verify(policyRepositoryPort, never()).save(any(Policy.class));
+        verify(policyEventPublisherPort, never()).publishPolicyCanceledEvent(any(PolicyCanceledEvent.class));
     }
 
     private static Policy buildPendingPaymentPolicy(int dueDay) {
