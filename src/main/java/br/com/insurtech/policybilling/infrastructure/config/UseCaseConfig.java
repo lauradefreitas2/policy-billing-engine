@@ -3,6 +3,7 @@ package br.com.insurtech.policybilling.infrastructure.config;
 import br.com.insurtech.policybilling.application.port.in.CreatePolicyUseCase;
 import br.com.insurtech.policybilling.application.port.in.CancelOverduePoliciesUseCase;
 import br.com.insurtech.policybilling.application.port.in.ProcessDailyBillingUseCase;
+import br.com.insurtech.policybilling.application.port.out.PolicyEventPublisherPort;
 import br.com.insurtech.policybilling.application.port.out.PolicyRepositoryPort;
 import br.com.insurtech.policybilling.application.usecase.CancelOverduePoliciesUseCaseImpl;
 import br.com.insurtech.policybilling.application.usecase.CreatePolicyUseCaseImpl;
@@ -30,7 +31,10 @@ public class UseCaseConfig {
     }
 
     @Bean
-    public CancelOverduePoliciesUseCase cancelOverduePoliciesUseCase(PolicyRepositoryPort policyRepositoryPort) {
-        return new CancelOverduePoliciesUseCaseImpl(policyRepositoryPort);
+    public CancelOverduePoliciesUseCase cancelOverduePoliciesUseCase(
+            PolicyRepositoryPort policyRepositoryPort,
+            PolicyEventPublisherPort policyEventPublisherPort
+    ) {
+        return new CancelOverduePoliciesUseCaseImpl(policyRepositoryPort, policyEventPublisherPort);
     }
 }

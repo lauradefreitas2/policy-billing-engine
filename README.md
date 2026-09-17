@@ -57,7 +57,17 @@ Versão atual do projeto: **1.1.0-SNAPSHOT**.
 - Referência de cron para produção: `0 15 0 * * ?`.
 - Apólices em `PENDING_PAYMENT` são avaliadas em Java.
 - Apólices com atraso de 10 dias ou mais são canceladas.
+- Ao cancelar uma apólice por inadimplência, a aplicação publica um evento `PolicyCanceledEvent`.
 - O cálculo de atraso com virada de mês está coberto por testes.
+
+### Eventos e Mensageria
+
+- Publicação de eventos via RabbitMQ usando Spring AMQP.
+- Exchange configurada: `policy.events.exchange`.
+- Fila configurada: `policy.canceled.queue`.
+- Routing key configurada: `policy.canceled.key`.
+- Mensagens trafegam em JSON com `Jackson2JsonMessageConverter`.
+- O domínio e os casos de uso dependem apenas da porta `PolicyEventPublisherPort`; o adapter RabbitMQ fica isolado na infraestrutura.
 
 ### Observabilidade
 
@@ -91,6 +101,7 @@ src/main/java/br/com/insurtech/policybilling/
     │   │   ├── scheduler
     │   │   └── web
     │   └── out
+    │       ├── messaging
     │       └── persistence
     ├── config
     └── observability
@@ -108,6 +119,7 @@ Contém os casos de uso e as portas da aplicação:
 - `ProcessDailyBillingUseCase`
 - `CancelOverduePoliciesUseCase`
 - `PolicyRepositoryPort`
+- `PolicyEventPublisherPort`
 
 ### Infrastructure
 
@@ -116,6 +128,7 @@ Contém os adaptadores e configurações técnicas:
 - Controller REST.
 - Tratamento global de exceções.
 - Adaptador de persistência JPA.
+- Adaptador RabbitMQ para publicação de eventos.
 - Jobs do Quartz.
 - Configurações Spring.
 - Decorator de observabilidade para métricas de criação de apólices.
@@ -128,8 +141,10 @@ Contém os adaptadores e configurações técnicas:
 | Spring Boot 3.5.x | Framework da aplicação |
 | Spring Web | API REST |
 | Spring Data JPA | Persistência |
+| Spring AMQP | Publicação de eventos no RabbitMQ |
 | Flyway | Versionamento de schema do banco |
 | PostgreSQL | Banco local/runtime |
+| RabbitMQ | Broker de mensagens para eventos |
 | H2 | Banco em memória para testes |
 | Quartz Scheduler | Jobs automatizados |
 | Springdoc OpenAPI | Documentação da API |
@@ -137,11 +152,11 @@ Contém os adaptadores e configurações técnicas:
 | Micrometer Prometheus | Exportação de métricas para Prometheus |
 | JUnit 5 | Testes automatizados |
 | Mockito | Test doubles |
-| Docker Compose | PostgreSQL local |
+| Docker Compose | PostgreSQL e RabbitMQ locais |
 
 ## Como Executar Localmente
 
-Subir o PostgreSQL:
+Subir PostgreSQL e RabbitMQ:
 
 ```bash
 docker compose up -d
@@ -161,6 +176,18 @@ Executar a aplicação:
 ```
 
 Na inicialização, o Flyway aplica as migrations em `src/main/resources/db/migration` antes do Hibernate validar o schema.
+
+Painel visual do RabbitMQ:
+
+```text
+http://localhost:15672
+```
+
+Credenciais locais:
+
+```text
+guest / guest
+```
 
 Swagger UI:
 
@@ -206,6 +233,7 @@ A cobertura atual inclui:
 - Casos de uso da aplicação.
 - Automação de faturamento.
 - Automação de cancelamento por inadimplência.
+- Publicação de evento quando uma apólice é cancelada por inadimplência.
 - Contratos do controller web.
 - Adaptador de persistência JPA.
 - Execução das migrations Flyway em banco H2 durante os testes.
@@ -215,7 +243,7 @@ A cobertura atual inclui:
 ## Roadmap
 
 - Integração com gateway de pagamento real para cobranças recorrentes.
-- Publicação de eventos RabbitMQ para tentativas de cobrança e resultados de pagamento.
+- Publicação de eventos para tentativas de cobrança e resultados de pagamento.
 - Configuração OAuth2 Resource Server com validação JWT e RBAC.
 - Política de retry para falhas de pagamento.
 - Fluxo de suspensão de apólice antes do cancelamento definitivo.
@@ -234,6 +262,7 @@ Este projeto demonstra práticas de engenharia backend aplicadas a um domínio r
 - Regras de domínio ricas.
 - Jobs automatizados.
 - Adaptador real de persistência.
+- Publicação de eventos com RabbitMQ via porta de saída.
 - Versionamento de banco com Flyway.
 - Testes em múltiplas camadas.
 - Observabilidade orientada a produção.
