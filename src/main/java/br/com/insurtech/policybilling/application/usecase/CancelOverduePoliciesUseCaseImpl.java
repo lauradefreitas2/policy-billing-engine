@@ -2,15 +2,15 @@ package br.com.insurtech.policybilling.application.usecase;
 
 import br.com.insurtech.policybilling.application.port.in.CancelOverduePoliciesUseCase;
 import br.com.insurtech.policybilling.application.port.out.PolicyCanceledEvent;
-import br.com.insurtech.policybilling.application.port.out.PolicyEventPublisherPort;
+import br.com.insurtech.policybilling.application.port.out.PolicyEventOutboxPort;
 import br.com.insurtech.policybilling.application.port.out.PolicyRepositoryPort;
 import br.com.insurtech.policybilling.domain.model.Policy;
 import br.com.insurtech.policybilling.domain.model.PolicyStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
@@ -21,20 +21,23 @@ public class CancelOverduePoliciesUseCaseImpl implements CancelOverduePoliciesUs
     private static final int MAX_DAYS_SUSPENDED = 10;
 
     private final PolicyRepositoryPort policyRepositoryPort;
-    private final PolicyEventPublisherPort policyEventPublisherPort;
+    private final PolicyEventOutboxPort policyEventOutboxPort;
+    private final Clock clock;
 
     public CancelOverduePoliciesUseCaseImpl(
             PolicyRepositoryPort policyRepositoryPort,
-            PolicyEventPublisherPort policyEventPublisherPort
+            PolicyEventOutboxPort policyEventOutboxPort,
+            Clock clock
     ) {
         this.policyRepositoryPort = Objects.requireNonNull(
                 policyRepositoryPort,
                 "policyRepositoryPort must not be null"
         );
-        this.policyEventPublisherPort = Objects.requireNonNull(
-                policyEventPublisherPort,
-                "policyEventPublisherPort must not be null"
+        this.policyEventOutboxPort = Objects.requireNonNull(
+                policyEventOutboxPort,
+                "policyEventOutboxPort must not be null"
         );
+        this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
     @Override
@@ -69,10 +72,11 @@ public class CancelOverduePoliciesUseCaseImpl implements CancelOverduePoliciesUs
     private void cancelPolicy(Policy policy, long daysSuspended) {
         policy.cancelDueToNonPayment();
         policyRepositoryPort.save(policy);
-        policyEventPublisherPort.publishPolicyCanceledEvent(new PolicyCanceledEvent(
+        policyEventOutboxPort.appendPolicyCanceledEvent(new PolicyCanceledEvent(
+                java.util.UUID.randomUUID(),
                 policy.id(),
                 policy.customerId(),
-                LocalDateTime.now()
+                clock.instant()
         ));
         log.debug("Policy {} canceled due to {} suspended days", policy.id(), daysSuspended);
     }

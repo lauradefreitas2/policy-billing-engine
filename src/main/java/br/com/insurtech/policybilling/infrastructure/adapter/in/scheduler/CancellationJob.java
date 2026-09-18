@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.quartz.QuartzJobBean;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Objects;
 
@@ -20,6 +21,7 @@ public class CancellationJob extends QuartzJobBean {
     private static final Logger log = LoggerFactory.getLogger(CancellationJob.class);
 
     private CancelOverduePoliciesUseCase cancelOverduePoliciesUseCase;
+    private Clock clock;
 
     @Autowired
     public void setCancelOverduePoliciesUseCase(CancelOverduePoliciesUseCase cancelOverduePoliciesUseCase) {
@@ -29,9 +31,14 @@ public class CancellationJob extends QuartzJobBean {
         );
     }
 
+    @Autowired
+    public void setClock(Clock clock) {
+        this.clock = Objects.requireNonNull(clock, "clock must not be null");
+    }
+
     @Override
     protected void executeInternal(JobExecutionContext context) throws JobExecutionException {
-        LocalDate currentDate = LocalDate.now();
+        LocalDate currentDate = LocalDate.now(clock);
         log.info("Cancellation job started for date {}", currentDate);
 
         try {

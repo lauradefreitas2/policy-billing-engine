@@ -8,7 +8,10 @@ import br.com.insurtech.policybilling.application.port.out.PolicyCanceledEvent;
 import br.com.insurtech.policybilling.application.port.out.PolicyEventPublisherPort;
 import br.com.insurtech.policybilling.domain.model.PolicyStatus;
 import br.com.insurtech.policybilling.infrastructure.adapter.in.web.dto.CreatePolicyRequest;
+import br.com.insurtech.policybilling.infrastructure.adapter.out.messaging.OutboxEventPublisher;
+import br.com.insurtech.policybilling.infrastructure.adapter.out.persistence.SpringDataOutboxEventRepository;
 import br.com.insurtech.policybilling.infrastructure.adapter.out.persistence.SpringDataPolicyRepository;
+import br.com.insurtech.policybilling.infrastructure.adapter.out.persistence.entity.OutboxEventEntity;
 import br.com.insurtech.policybilling.infrastructure.adapter.out.persistence.entity.PolicyEntity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -48,6 +51,12 @@ class PolicyBillingFlowIntegrationTest {
     private SpringDataPolicyRepository policyRepository;
 
     @Autowired
+    private SpringDataOutboxEventRepository outboxRepository;
+
+    @Autowired
+    private OutboxEventPublisher outboxEventPublisher;
+
+    @Autowired
     private ProcessDailyBillingUseCase processDailyBillingUseCase;
 
     @Autowired
@@ -67,6 +76,7 @@ class PolicyBillingFlowIntegrationTest {
 
     @BeforeEach
     void cleanDatabase() {
+        outboxRepository.deleteAll();
         policyRepository.deleteAll();
     }
 
@@ -102,8 +112,8 @@ class PolicyBillingFlowIntegrationTest {
     }
 
     @Test
-    @DisplayName("should process billing then suspend and cancel overdue policy publishing cancellation event")
-    void shouldProcessBillingThenSuspendAndCancelOverduePolicyPublishingCancellationEvent() throws Exception {
+    @DisplayName("should atomically cancel policy then publish its persisted outbox event")
+    void shouldAtomicallyCancelPolicyThenPublishItsPersistedOutboxEvent() throws Exception {
         mockMvc.perform(post("/api/v1/policies")
                         .with(jwt())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -126,11 +136,21 @@ class PolicyBillingFlowIntegrationTest {
         assertThat(canceledPolicy.getStatus()).isEqualTo(PolicyStatus.CANCELED.name());
         assertThat(canceledPolicy.getSuspendedAt()).isEqualTo(LocalDate.of(2026, 6, TestFixtures.DUE_DAY + 1).atStartOfDay());
 
+        OutboxEventEntity pendingEvent = outboxRepository.findAll().getFirst();
+        assertThat(pendingEvent.getAggregateId()).isEqualTo(createdPolicy.getId());
+        assertThat(pendingEvent.getStatus()).isEqualTo(OutboxEventEntity.PENDING);
+        verifyNoInteractions(policyEventPublisherPort);
+
+        assertThat(outboxEventPublisher.publishPendingEvents()).isEqualTo(1);
+
         ArgumentCaptor<PolicyCanceledEvent> eventCaptor = ArgumentCaptor.forClass(PolicyCanceledEvent.class);
         verify(policyEventPublisherPort).publishPolicyCanceledEvent(eventCaptor.capture());
         PolicyCanceledEvent event = eventCaptor.getValue();
+        assertThat(event.eventId()).isEqualTo(pendingEvent.getId());
         assertThat(event.policyId()).isEqualTo(createdPolicy.getId());
         assertThat(event.customerId()).isEqualTo(TestFixtures.CUSTOMER_ID);
         assertThat(event.canceledAt()).isNotNull();
+        assertThat(outboxRepository.findById(pendingEvent.getId()).orElseThrow().getStatus())
+                .isEqualTo(OutboxEventEntity.PUBLISHED);
     }
 }

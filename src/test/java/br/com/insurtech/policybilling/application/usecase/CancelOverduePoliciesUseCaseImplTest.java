@@ -2,21 +2,24 @@ package br.com.insurtech.policybilling.application.usecase;
 
 import br.com.insurtech.policybilling.TestFixtures;
 import br.com.insurtech.policybilling.application.port.out.PolicyCanceledEvent;
-import br.com.insurtech.policybilling.application.port.out.PolicyEventPublisherPort;
+import br.com.insurtech.policybilling.application.port.out.PolicyEventOutboxPort;
 import br.com.insurtech.policybilling.application.port.out.PolicyRepositoryPort;
 import br.com.insurtech.policybilling.domain.model.Policy;
 import br.com.insurtech.policybilling.domain.model.PolicyStatus;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,14 +36,24 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class CancelOverduePoliciesUseCaseImplTest {
 
+    private static final Instant EVENT_TIME = Instant.parse("2026-06-21T12:00:00Z");
+
     @Mock
     private PolicyRepositoryPort policyRepositoryPort;
 
     @Mock
-    private PolicyEventPublisherPort policyEventPublisherPort;
+    private PolicyEventOutboxPort policyEventOutboxPort;
 
-    @InjectMocks
     private CancelOverduePoliciesUseCaseImpl cancelOverduePoliciesUseCase;
+
+    @BeforeEach
+    void setUp() {
+        cancelOverduePoliciesUseCase = new CancelOverduePoliciesUseCaseImpl(
+                policyRepositoryPort,
+                policyEventOutboxPort,
+                Clock.fixed(EVENT_TIME, ZoneOffset.UTC)
+        );
+    }
 
     @Test
     @DisplayName("should cancel policies suspended for at least ten days")
@@ -59,7 +72,7 @@ class CancelOverduePoliciesUseCaseImplTest {
         verify(policyRepositoryPort, times(2)).save(any(Policy.class));
         verify(policyRepositoryPort).save(firstPolicy);
         verify(policyRepositoryPort).save(secondPolicy);
-        verify(policyEventPublisherPort, times(2)).publishPolicyCanceledEvent(any(PolicyCanceledEvent.class));
+        verify(policyEventOutboxPort, times(2)).appendPolicyCanceledEvent(any(PolicyCanceledEvent.class));
     }
 
     @Test
@@ -73,14 +86,15 @@ class CancelOverduePoliciesUseCaseImplTest {
         cancelOverduePoliciesUseCase.execute(currentDate);
 
         ArgumentCaptor<PolicyCanceledEvent> eventCaptor = ArgumentCaptor.forClass(PolicyCanceledEvent.class);
-        InOrder inOrder = inOrder(policyRepositoryPort, policyEventPublisherPort);
+        InOrder inOrder = inOrder(policyRepositoryPort, policyEventOutboxPort);
         inOrder.verify(policyRepositoryPort).save(policy);
-        inOrder.verify(policyEventPublisherPort).publishPolicyCanceledEvent(eventCaptor.capture());
+        inOrder.verify(policyEventOutboxPort).appendPolicyCanceledEvent(eventCaptor.capture());
 
         PolicyCanceledEvent event = eventCaptor.getValue();
+        assertThat(event.eventId()).isNotNull();
         assertThat(event.policyId()).isEqualTo(policy.id());
         assertThat(event.customerId()).isEqualTo(policy.customerId());
-        assertThat(event.canceledAt()).isNotNull();
+        assertThat(event.canceledAt()).isEqualTo(EVENT_TIME);
     }
 
     @Test
@@ -95,7 +109,7 @@ class CancelOverduePoliciesUseCaseImplTest {
 
         assertThat(policy.status()).isEqualTo(PolicyStatus.CANCELED);
         verify(policyRepositoryPort).save(policy);
-        verify(policyEventPublisherPort).publishPolicyCanceledEvent(any(PolicyCanceledEvent.class));
+        verify(policyEventOutboxPort).appendPolicyCanceledEvent(any(PolicyCanceledEvent.class));
     }
 
     @Test
@@ -111,7 +125,7 @@ class CancelOverduePoliciesUseCaseImplTest {
         assertThat(policy.status()).isEqualTo(PolicyStatus.SUSPENDED);
         verify(policyRepositoryPort).findByStatus(PolicyStatus.SUSPENDED);
         verify(policyRepositoryPort, never()).save(policy);
-        verify(policyEventPublisherPort, never()).publishPolicyCanceledEvent(any(PolicyCanceledEvent.class));
+        verify(policyEventOutboxPort, never()).appendPolicyCanceledEvent(any(PolicyCanceledEvent.class));
     }
 
     @Test
@@ -127,7 +141,7 @@ class CancelOverduePoliciesUseCaseImplTest {
         assertThat(policy.status()).isEqualTo(PolicyStatus.CANCELED);
         verify(policyRepositoryPort).findByStatus(PolicyStatus.SUSPENDED);
         verify(policyRepositoryPort).save(policy);
-        verify(policyEventPublisherPort).publishPolicyCanceledEvent(any(PolicyCanceledEvent.class));
+        verify(policyEventOutboxPort).appendPolicyCanceledEvent(any(PolicyCanceledEvent.class));
     }
 
     @Test
@@ -141,7 +155,7 @@ class CancelOverduePoliciesUseCaseImplTest {
 
         verify(policyRepositoryPort).findByStatus(PolicyStatus.SUSPENDED);
         verify(policyRepositoryPort, never()).save(any(Policy.class));
-        verify(policyEventPublisherPort, never()).publishPolicyCanceledEvent(any(PolicyCanceledEvent.class));
+        verify(policyEventOutboxPort, never()).appendPolicyCanceledEvent(any(PolicyCanceledEvent.class));
     }
 
     @Test
@@ -151,23 +165,43 @@ class CancelOverduePoliciesUseCaseImplTest {
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("currentDate must not be null");
 
-        verifyNoInteractions(policyRepositoryPort, policyEventPublisherPort);
+        verifyNoInteractions(policyRepositoryPort, policyEventOutboxPort);
     }
 
     @Test
     @DisplayName("should throw exception when instantiating with null repository")
     void shouldThrowExceptionWhenRepositoryIsNull() {
-        assertThatThrownBy(() -> new CancelOverduePoliciesUseCaseImpl(null, policyEventPublisherPort))
+        assertThatThrownBy(() -> new CancelOverduePoliciesUseCaseImpl(
+                null,
+                policyEventOutboxPort,
+                Clock.systemUTC()
+        ))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("policyRepositoryPort must not be null");
     }
 
     @Test
     @DisplayName("should throw exception when instantiating with null publisher")
-    void shouldThrowExceptionWhenPublisherIsNull() {
-        assertThatThrownBy(() -> new CancelOverduePoliciesUseCaseImpl(policyRepositoryPort, null))
+    void shouldThrowExceptionWhenOutboxIsNull() {
+        assertThatThrownBy(() -> new CancelOverduePoliciesUseCaseImpl(
+                policyRepositoryPort,
+                null,
+                Clock.systemUTC()
+        ))
                 .isInstanceOf(NullPointerException.class)
-                .hasMessage("policyEventPublisherPort must not be null");
+                .hasMessage("policyEventOutboxPort must not be null");
+    }
+
+    @Test
+    @DisplayName("should throw exception when instantiating with null clock")
+    void shouldThrowExceptionWhenClockIsNull() {
+        assertThatThrownBy(() -> new CancelOverduePoliciesUseCaseImpl(
+                policyRepositoryPort,
+                policyEventOutboxPort,
+                null
+        ))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("clock must not be null");
     }
 
     private static Policy buildSuspendedPolicy(LocalDateTime suspendedAt) {

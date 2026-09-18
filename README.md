@@ -71,17 +71,28 @@ Versão atual do projeto: **1.3.0-SNAPSHOT**.
 - Referência de cron para produção: `0 15 0 * * ?`.
 - Apólices em `SUSPENDED` são avaliadas em Java.
 - Apólices suspensas por 10 dias ou mais são canceladas.
-- Ao cancelar uma apólice por inadimplência, a aplicação publica um evento `PolicyCanceledEvent`.
+- Ao cancelar uma apólice por inadimplência, a aplicação registra um `PolicyCanceledEvent` no outbox.
 - O cálculo de atraso e de tempo em suspensão está coberto por testes.
 
 ### Eventos e Mensageria
 
-- Publicação de eventos via RabbitMQ usando Spring AMQP.
+- Publicação de eventos via RabbitMQ usando Spring AMQP e padrão Transactional Outbox.
+- O cancelamento da apólice e a criação do evento no outbox são confirmados na mesma transação PostgreSQL.
+- Um job Quartz processa o outbox a cada 5 segundos em lotes configuráveis.
+- Falhas de publicação usam retry exponencial e terminam no estado `DEAD` após o limite configurado.
+- Cada evento possui `eventId`, também enviado como `messageId`, para deduplicação pelo consumidor.
+- O publisher aguarda confirmação do RabbitMQ antes de marcar o evento como `PUBLISHED`.
 - Exchange configurada: `policy.events.exchange`.
 - Fila configurada: `policy.canceled.queue`.
 - Routing key configurada: `policy.canceled.key`.
 - Mensagens trafegam em JSON com `Jackson2JsonMessageConverter`.
-- O domínio e os casos de uso dependem apenas da porta `PolicyEventPublisherPort`; o adapter RabbitMQ fica isolado na infraestrutura.
+- Métrica `outbox.events` expõe os resultados `created`, `published`, `retry` e `dead`.
+- O caso de uso depende apenas da porta `PolicyEventOutboxPort`; persistência, retry e RabbitMQ ficam na infraestrutura.
+
+### Tempo determinístico
+
+- A aplicação usa um `Clock` UTC injetável para gerar instantes e datas dos jobs.
+- Os testes usam relógio fixo e não dependem da data ou do fuso da máquina que executa a suíte.
 
 ### Segurança
 
@@ -288,7 +299,7 @@ http://localhost:8080/swagger-ui.html
 
 6. Confira os exemplos de erro `400`, `401` e `422` no Swagger para entender autenticação, validações de entrada e regras de domínio.
 
-Observação: os jobs Quartz processam faturamento e cancelamento automaticamente em intervalos curtos no ambiente local. Quando uma apólice é cancelada por inadimplência, um evento `PolicyCanceledEvent` é publicado no RabbitMQ.
+Observação: os jobs Quartz processam faturamento e cancelamento automaticamente em intervalos curtos no ambiente local. Quando uma apólice é cancelada por inadimplência, o `PolicyCanceledEvent` é persistido no outbox e publicado no RabbitMQ pelo job de entrega.
 
 Health da aplicação:
 
@@ -329,6 +340,9 @@ A cobertura atual inclui:
 - Automação de faturamento.
 - Automação de cancelamento por inadimplência.
 - Publicação de evento quando uma apólice é cancelada por inadimplência.
+- Atomicidade entre cancelamento e registro do evento no outbox.
+- Retry, estado terminal e métricas da entrega assíncrona.
+- Confirmação de publicação no RabbitMQ.
 - Regras de segurança HTTP.
 - Contratos do controller web.
 - Adaptador de persistência JPA.
@@ -348,13 +362,14 @@ O ambiente remoto de desenvolvimento usa o mesmo commit aprovado pela CI, config
 
 ## Roadmap
 
-- Integração com gateway de pagamento real para cobranças recorrentes.
-- Publicação de eventos para tentativas de cobrança e resultados de pagamento.
+- Definição das regras de ciclo, vencimento e liquidação antes de introduzir `Invoice` e `BillingCycle`.
+- Modelagem de `PaymentAttempt` junto da integração com um gateway de pagamento real.
+- Consumidores idempotentes usando o `eventId`, com retry e DLQ sob responsabilidade de cada consumidor.
+- Dashboard Grafana e alertas para retries, eventos terminais e latência do outbox.
 - RBAC baseado em roles/scopes do JWT.
 - Política de retry para falhas de pagamento.
 - Novas migrations Flyway conforme o modelo de dados evoluir.
 - Perfis de produção para Quartz usando cron em vez dos intervalos curtos locais.
-- Dashboards e alertas com Prometheus/Grafana.
 - Testes de carga e resiliência.
 
 ## Objetivo do Projeto

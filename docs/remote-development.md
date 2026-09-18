@@ -103,6 +103,14 @@ APP_OPENAPI_OAUTH_ISSUER_URI=<KEYCLOAK_PUBLIC_URL>/realms/policy-realm
 JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75.0
 ```
 
+O outbox usa lotes de 50 eventos, cinco tentativas e retry exponencial iniciado em 10 segundos. Ajuste apenas se a carga exigir:
+
+```dotenv
+APP_OUTBOX_BATCH_SIZE=50
+APP_OUTBOX_MAX_ATTEMPTS=5
+APP_OUTBOX_RETRY_DELAY=10s
+```
+
 Configure o health check do serviço App como `/actuator/health`, com timeout de pelo menos 120 segundos, e a política de reinício como `ON_FAILURE`. Mantenha apenas uma réplica.
 
 ## 7. Validação
@@ -113,7 +121,7 @@ Depois do deploy, valide nesta ordem:
 2. `<APP_PUBLIC_URL>/actuator/health` retorna `UP` sem detalhes internos.
 3. `<APP_PUBLIC_URL>/swagger-ui.html` abre e autentica pelo Keycloak.
 4. `POST /api/v1/policies` persiste uma apólice no PostgreSQL.
-5. RabbitMQ recebe o evento depois do fluxo de cancelamento.
+5. RabbitMQ recebe o evento depois do fluxo de cancelamento e o registro correspondente fica `PUBLISHED` em `outbox_events`.
 6. `/actuator/info` sem token retorna `401`.
 
 ## Releases
