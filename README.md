@@ -92,8 +92,10 @@ Versão atual do projeto: **1.3.0-SNAPSHOT**.
   - `/v3/api-docs/**`
   - `/swagger-ui/**`
   - `/swagger-ui.html`
-- Actuator liberado para health checks e observabilidade local:
-  - `/actuator/**`
+- Health check do Actuator liberado sem autenticação:
+  - `/actuator/health`
+  - `/actuator/health/**`
+- Demais endpoints do Actuator exigem autenticação.
 - Rotas da API, como `/api/v1/**`, exigem autenticação Bearer JWT.
 - Issuer URI configurado para o realm local `policy-realm`.
 
@@ -185,7 +187,8 @@ Contém os adaptadores e configurações técnicas:
 | JUnit 5 | Testes automatizados |
 | Mockito | Test doubles |
 | Docker Compose | PostgreSQL, RabbitMQ e Keycloak locais |
-| GitHub Actions | Build, testes e validação da imagem Docker |
+| GitHub Actions | Build, testes e publicação da imagem Docker |
+| GitHub Container Registry | Imagens versionadas por commit para deploy |
 
 ## Como Executar Localmente
 
@@ -211,7 +214,7 @@ docker compose up -d postgres rabbitmq keycloak
 Depois execute a aplicação localmente:
 
 ```bash
-./mvnw spring-boot:run
+SPRING_PROFILES_ACTIVE=local ./mvnw spring-boot:run
 ```
 
 Na inicialização, o Flyway aplica as migrations em `src/main/resources/db/migration` antes do Hibernate validar o schema.
@@ -337,7 +340,11 @@ A cobertura atual inclui:
 
 O workflow `.github/workflows/ci.yml` executa a verificação completa com Java 21 em pull requests e em pushes para `main`.
 
-Após os testes passarem em um push para `main`, a esteira valida o Docker Compose, constrói a imagem `policy-billing-engine:<commit-sha>` com BuildKit e confirma que ela foi carregada corretamente no runner. A imagem não é publicada em um registry nesta etapa.
+Após os testes passarem em um push para `main`, a esteira valida o Docker Compose e publica a imagem no GitHub Container Registry com as tags `development` e `sha-<commit>`.
+
+## Ambiente Remoto
+
+O ambiente remoto de desenvolvimento usa o mesmo commit aprovado pela CI, configuração externa e comunicação privada entre serviços. O provisionamento, as variáveis obrigatórias, os cuidados de segurança e a estratégia de releases estão descritos em [`docs/remote-development.md`](docs/remote-development.md).
 
 ## Roadmap
 
@@ -345,7 +352,6 @@ Após os testes passarem em um push para `main`, a esteira valida o Docker Compo
 - Publicação de eventos para tentativas de cobrança e resultados de pagamento.
 - RBAC baseado em roles/scopes do JWT.
 - Política de retry para falhas de pagamento.
-- Fluxo de suspensão de apólice antes do cancelamento definitivo.
 - Novas migrations Flyway conforme o modelo de dados evoluir.
 - Perfis de produção para Quartz usando cron em vez dos intervalos curtos locais.
 - Dashboards e alertas com Prometheus/Grafana.

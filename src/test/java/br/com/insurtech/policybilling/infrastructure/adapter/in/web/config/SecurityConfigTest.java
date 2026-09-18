@@ -40,6 +40,8 @@ class SecurityConfigTest {
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.components.securitySchemes.keycloakOAuth2.type").value("oauth2"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.components.securitySchemes.keycloakOAuth2.flows.authorizationCode.authorizationUrl").value("http://localhost:8081/realms/policy-realm/protocol/openid-connect/auth"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.components.securitySchemes.keycloakOAuth2.flows.authorizationCode.tokenUrl").value("http://localhost:8081/realms/policy-realm/protocol/openid-connect/token"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.servers[0].url").value("http://localhost:8080"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.servers[0].description").value("Ambiente de testes"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.security[0].keycloakOAuth2[0]").value("openid"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.security[0].keycloakOAuth2[1]").value("profile"));
     }
@@ -49,6 +51,13 @@ class SecurityConfigTest {
     void shouldAllowAccessToActuatorHealthWithoutAuthentication() throws Exception {
         mockMvc.perform(get("/actuator/health"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("should protect non-health actuator endpoints")
+    void shouldProtectNonHealthActuatorEndpoints() throws Exception {
+        mockMvc.perform(get("/actuator/info"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

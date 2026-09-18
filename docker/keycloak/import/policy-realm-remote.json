@@ -1,0 +1,43 @@
+{
+  "realm": "policy-realm",
+  "enabled": true,
+  "displayName": "Policy Billing Realm",
+  "clients": [
+    {
+      "clientId": "policy-engine-swagger",
+      "name": "Policy Engine Swagger",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "${APP_PUBLIC_URL}/swagger-ui/oauth2-redirect.html"
+      ],
+      "webOrigins": [
+        "${APP_PUBLIC_URL}"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "${DEV_TEST_USERNAME}",
+      "enabled": true,
+      "email": "${DEV_TEST_EMAIL}",
+      "firstName": "Development",
+      "lastName": "User",
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEV_TEST_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}
