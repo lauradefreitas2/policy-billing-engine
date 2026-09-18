@@ -2,6 +2,7 @@ package br.com.insurtech.policybilling.infrastructure.config;
 
 import br.com.insurtech.policybilling.infrastructure.adapter.in.scheduler.BillingJob;
 import br.com.insurtech.policybilling.infrastructure.adapter.in.scheduler.CancellationJob;
+import br.com.insurtech.policybilling.infrastructure.adapter.in.scheduler.OutboxPublisherJob;
 import br.com.insurtech.policybilling.infrastructure.adapter.in.scheduler.SuspensionJob;
 import org.quartz.JobBuilder;
 import org.quartz.JobDetail;
@@ -24,9 +25,12 @@ public class QuartzConfig {
     private static final String SUSPENSION_TRIGGER_IDENTITY = "overduePolicySuspensionTrigger";
     private static final String CANCELLATION_JOB_IDENTITY = "overduePolicyCancellationJob";
     private static final String CANCELLATION_TRIGGER_IDENTITY = "overduePolicyCancellationTrigger";
+    private static final String OUTBOX_JOB_IDENTITY = "outboxPublisherJob";
+    private static final String OUTBOX_TRIGGER_IDENTITY = "outboxPublisherTrigger";
     private static final int LOCAL_BILLING_INTERVAL_SECONDS = 30;
     private static final int LOCAL_SUSPENSION_INTERVAL_SECONDS = 40;
     private static final int LOCAL_CANCELLATION_INTERVAL_SECONDS = 45;
+    private static final int OUTBOX_INTERVAL_SECONDS = 5;
 
     @Bean
     public JobDetail billingJobDetail() {
@@ -84,6 +88,25 @@ public class QuartzConfig {
                 .withIdentity(CANCELLATION_TRIGGER_IDENTITY)
                 .withSchedule(SimpleScheduleBuilder.simpleSchedule()
                         .withIntervalInSeconds(LOCAL_CANCELLATION_INTERVAL_SECONDS)
+                        .repeatForever())
+                .build();
+    }
+
+    @Bean
+    public JobDetail outboxPublisherJobDetail() {
+        return JobBuilder.newJob(OutboxPublisherJob.class)
+                .withIdentity(OUTBOX_JOB_IDENTITY)
+                .storeDurably()
+                .build();
+    }
+
+    @Bean
+    public Trigger outboxPublisherJobTrigger(JobDetail outboxPublisherJobDetail) {
+        return TriggerBuilder.newTrigger()
+                .forJob(outboxPublisherJobDetail)
+                .withIdentity(OUTBOX_TRIGGER_IDENTITY)
+                .withSchedule(SimpleScheduleBuilder.simpleSchedule()
+                        .withIntervalInSeconds(OUTBOX_INTERVAL_SECONDS)
                         .repeatForever())
                 .build();
     }

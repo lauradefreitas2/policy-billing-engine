@@ -9,7 +9,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -18,6 +21,11 @@ import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class CancellationJobTest {
+
+    private static final Clock FIXED_CLOCK = Clock.fixed(
+            Instant.parse("2026-06-21T12:00:00Z"),
+            ZoneOffset.UTC
+    );
 
     @Mock
     private CancelOverduePoliciesUseCase cancelOverduePoliciesUseCase;
@@ -30,10 +38,11 @@ class CancellationJobTest {
     void shouldInvokeUseCaseWhenJobIsExecuted() throws Exception {
         CancellationJob cancellationJob = new CancellationJob();
         cancellationJob.setCancelOverduePoliciesUseCase(cancelOverduePoliciesUseCase);
+        cancellationJob.setClock(FIXED_CLOCK);
 
         cancellationJob.executeInternal(jobExecutionContext);
 
-        verify(cancelOverduePoliciesUseCase).execute(any(LocalDate.class));
+        verify(cancelOverduePoliciesUseCase).execute(LocalDate.of(2026, 6, 21));
     }
 
     @Test
@@ -41,6 +50,7 @@ class CancellationJobTest {
     void shouldWrapUseCaseFailureAsQuartzJobExecutionException() {
         CancellationJob cancellationJob = new CancellationJob();
         cancellationJob.setCancelOverduePoliciesUseCase(cancelOverduePoliciesUseCase);
+        cancellationJob.setClock(FIXED_CLOCK);
         RuntimeException failure = new RuntimeException("cancellation failed");
         doThrow(failure).when(cancelOverduePoliciesUseCase).execute(any(LocalDate.class));
 

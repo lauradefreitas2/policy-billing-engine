@@ -1,11 +1,21 @@
 package br.com.insurtech.policybilling.infrastructure.config;
 
+import br.com.insurtech.policybilling.application.port.out.PolicyCanceledEvent;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.DirectExchange;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -41,7 +51,21 @@ class RabbitMQConfigTest {
     @Test
     @DisplayName("should use Jackson JSON converter for readable event payloads")
     void shouldUseJacksonJsonConverterForReadableEventPayloads() {
-        assertThat(config.jackson2JsonMessageConverter())
-                .isInstanceOf(Jackson2JsonMessageConverter.class);
+        ObjectMapper objectMapper = new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        Jackson2JsonMessageConverter converter = config.jackson2JsonMessageConverter(objectMapper);
+        PolicyCanceledEvent event = new PolicyCanceledEvent(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                Instant.parse("2026-09-18T12:00:00Z")
+        );
+
+        Message message = converter.toMessage(event, new MessageProperties());
+
+        assertThat(converter).isInstanceOf(Jackson2JsonMessageConverter.class);
+        assertThat(new String(message.getBody(), StandardCharsets.UTF_8))
+                .contains("\"canceledAt\":\"2026-09-18T12:00:00Z\"");
     }
 }

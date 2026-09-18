@@ -10,21 +10,15 @@
 	</parent>
 	<groupId>br.com.insurtech</groupId>
 	<artifactId>policy-billing-engine</artifactId>
-	<version>1.3.0-SNAPSHOT</version>
-	<name/>
-	<description/>
-	<url/>
-	<licenses>
-		<license/>
-	</licenses>
-	<developers>
-		<developer/>
-	</developers>
+	<version>1.4.0-SNAPSHOT</version>
+	<name>Policy Billing Engine</name>
+	<description>Recurring mobile insurance policy billing engine</description>
+	<url>https://github.com/lauradefreitas2/policy-billing-engine</url>
 	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
+		<connection>scm:git:https://github.com/lauradefreitas2/policy-billing-engine.git</connection>
+		<developerConnection>scm:git:ssh://git@github.com/lauradefreitas2/policy-billing-engine.git</developerConnection>
+		<tag>HEAD</tag>
+		<url>https://github.com/lauradefreitas2/policy-billing-engine</url>
 	</scm>
 	<properties>
 		<java.version>21</java.version>
