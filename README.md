@@ -1,5 +1,7 @@
 # Policy Billing Engine
 
+[![CI](https://github.com/lauradefreitas2/policy-billing-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/lauradefreitas2/policy-billing-engine/actions/workflows/ci.yml)
+
 O **Policy Billing Engine** é um serviço backend para uma Insurtech focada em seguros de dispositivos móveis. Ele gerencia emissão de apólices, regras de faturamento mensal recorrente, transições automáticas de cobrança, cancelamento por inadimplência, persistência e observabilidade operacional.
 
 O projeto é construído com **Java 21** e **Spring Boot**, seguindo **Arquitetura Hexagonal (Ports & Adapters)**. O domínio permanece independente de Spring, JPA, Quartz, APIs web e ferramentas de observabilidade.
@@ -183,6 +185,7 @@ Contém os adaptadores e configurações técnicas:
 | JUnit 5 | Testes automatizados |
 | Mockito | Test doubles |
 | Docker Compose | PostgreSQL, RabbitMQ e Keycloak locais |
+| GitHub Actions | Build, testes e validação da imagem Docker |
 
 ## Como Executar Localmente
 
@@ -329,6 +332,12 @@ A cobertura atual inclui:
 - Execução das migrations Flyway em banco H2 durante os testes.
 - Verificação de fronteira arquitetural.
 - Decorator de observabilidade.
+
+## Integração Contínua
+
+O workflow `.github/workflows/ci.yml` executa a verificação completa com Java 21 em pull requests e em pushes para `main`.
+
+Após os testes passarem em um push para `main`, a esteira valida o Docker Compose, constrói a imagem `policy-billing-engine:<commit-sha>` com BuildKit e confirma que ela foi carregada corretamente no runner. A imagem não é publicada em um registry nesta etapa.
 
 ## Roadmap
 
