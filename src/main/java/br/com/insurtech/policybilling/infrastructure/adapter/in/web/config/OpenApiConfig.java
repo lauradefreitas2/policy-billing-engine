@@ -11,19 +11,26 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.servers.Server;
 import io.swagger.v3.oas.models.tags.Tag;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
 
 @Configuration
+@EnableConfigurationProperties(OpenApiProperties.class)
 public class OpenApiConfig {
 
     public static final String SECURITY_SCHEME_NAME = "keycloakOAuth2";
 
-    private static final String KEYCLOAK_ISSUER_URI = "http://localhost:8081/realms/policy-realm";
     private static final String OPENID_SCOPE = "openid";
     private static final String PROFILE_SCOPE = "profile";
+
+    private final OpenApiProperties properties;
+
+    public OpenApiConfig(OpenApiProperties properties) {
+        this.properties = properties;
+    }
 
     @Bean
     public OpenAPI customOpenAPI() {
@@ -33,8 +40,8 @@ public class OpenApiConfig {
                 .addSecurityItem(new SecurityRequirement()
                         .addList(SECURITY_SCHEME_NAME, List.of(OPENID_SCOPE, PROFILE_SCOPE)))
                 .servers(List.of(new Server()
-                        .url("http://localhost:8080")
-                        .description("Ambiente local")))
+                        .url(properties.serverUrl())
+                        .description(properties.serverDescription())))
                 .tags(List.of(new Tag()
                         .name("Apólices")
                         .description("Emissão e acompanhamento de apólices de seguro mobile.")))
@@ -55,11 +62,11 @@ public class OpenApiConfig {
     private SecurityScheme keycloakOAuth2SecurityScheme() {
         return new SecurityScheme()
                 .type(SecurityScheme.Type.OAUTH2)
-                .description("Autenticação OAuth2 via Keycloak local. Use o botão Authorize do Swagger.")
+                .description("Autenticação OAuth2 via Keycloak. Use o botão Authorize do Swagger.")
                 .flows(new OAuthFlows()
                         .authorizationCode(new OAuthFlow()
-                                .authorizationUrl(KEYCLOAK_ISSUER_URI + "/protocol/openid-connect/auth")
-                                .tokenUrl(KEYCLOAK_ISSUER_URI + "/protocol/openid-connect/token")
+                                .authorizationUrl(properties.oauthIssuerUri() + "/protocol/openid-connect/auth")
+                                .tokenUrl(properties.oauthIssuerUri() + "/protocol/openid-connect/token")
                                 .scopes(new Scopes()
                                         .addString(OPENID_SCOPE, "Identificação OpenID Connect")
                                         .addString(PROFILE_SCOPE, "Dados básicos do usuário autenticado"))));

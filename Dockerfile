@@ -12,6 +12,9 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
+LABEL org.opencontainers.image.source="https://github.com/lauradefreitas2/policy-billing-engine"
+LABEL org.opencontainers.image.description="Recurring mobile insurance policy billing engine"
+
 RUN addgroup -S app && adduser -S app -G app
 
 COPY --from=build /workspace/target/policy-billing-engine-*.jar app.jar

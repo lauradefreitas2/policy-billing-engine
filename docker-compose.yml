@@ -12,6 +12,7 @@ services:
       keycloak:
         condition: service_started
     environment:
+      SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/policy_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
@@ -52,7 +53,7 @@ services:
       - policy-network
 
   rabbitmq:
-    image: rabbitmq:3.13-management
+    image: rabbitmq:4.3.6-management
     container_name: policy-billing-rabbitmq
     ports:
       - "5672:5672"
@@ -69,18 +70,18 @@ services:
       - policy-network
 
   keycloak:
-    image: quay.io/keycloak/keycloak:24.0.2
+    image: quay.io/keycloak/keycloak:26.7.4
     container_name: policy-billing-keycloak
     command: start-dev --import-realm
     environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
       KC_HEALTH_ENABLED: true
       KC_METRICS_ENABLED: true
     ports:
       - "8081:8080"
     volumes:
-      - ./docker/keycloak/import:/opt/keycloak/data/import:ro
+      - ./docker/keycloak/import/policy-realm.json:/opt/keycloak/data/import/policy-realm-realm.json:ro
     networks:
       - policy-network
 
