@@ -1,5 +1,6 @@
 package br.com.insurtech.policybilling.infrastructure.adapter.in.web.exception;
 
+import br.com.insurtech.policybilling.application.exception.PolicyNotFoundException;
 import br.com.insurtech.policybilling.domain.exception.DomainException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -14,6 +15,13 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(PolicyNotFoundException.class)
+    public ProblemDetail handlePolicyNotFoundException(PolicyNotFoundException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
+        problemDetail.setDetail(ex.getMessage());
+        return problemDetail;
+    }
 
     @ExceptionHandler(DomainException.class)
     public ProblemDetail handleDomainException(DomainException ex) {

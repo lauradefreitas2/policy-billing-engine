@@ -3,11 +3,13 @@ package br.com.insurtech.policybilling.integration;
 import br.com.insurtech.policybilling.TestFixtures;
 import br.com.insurtech.policybilling.application.port.in.CancelOverduePoliciesUseCase;
 import br.com.insurtech.policybilling.application.port.in.ProcessDailyBillingUseCase;
+import br.com.insurtech.policybilling.application.port.in.SuccessfulPaymentStatus;
 import br.com.insurtech.policybilling.application.port.in.SuspendOverduePoliciesUseCase;
 import br.com.insurtech.policybilling.application.port.out.PolicyCanceledEvent;
 import br.com.insurtech.policybilling.application.port.out.PolicyEventPublisherPort;
 import br.com.insurtech.policybilling.domain.model.PolicyStatus;
 import br.com.insurtech.policybilling.infrastructure.adapter.in.web.dto.CreatePolicyRequest;
+import br.com.insurtech.policybilling.infrastructure.adapter.in.web.dto.PaymentWebhookRequest;
 import br.com.insurtech.policybilling.infrastructure.adapter.out.messaging.OutboxEventPublisher;
 import br.com.insurtech.policybilling.infrastructure.adapter.out.persistence.SpringDataOutboxEventRepository;
 import br.com.insurtech.policybilling.infrastructure.adapter.out.persistence.SpringDataPolicyRepository;
@@ -28,6 +30,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
@@ -109,6 +112,34 @@ class PolicyBillingFlowIntegrationTest {
                 });
         assertThat(meterRegistry.counter("policies.created").count()).isEqualTo(createdPoliciesBefore + 1.0);
         verifyNoInteractions(policyEventPublisherPort);
+    }
+
+    @Test
+    @DisplayName("should reactivate suspended policy through public payment webhook")
+    void shouldReactivateSuspendedPolicyThroughPublicPaymentWebhook() throws Exception {
+        UUID policyId = UUID.randomUUID();
+        PolicyEntity suspendedPolicy = TestFixtures.policyEntity(
+                policyId,
+                TestFixtures.CUSTOMER_ID,
+                TestFixtures.DUE_DAY,
+                PolicyStatus.SUSPENDED
+        );
+        policyRepository.saveAndFlush(suspendedPolicy);
+        PaymentWebhookRequest request = new PaymentWebhookRequest(
+                policyId,
+                SuccessfulPaymentStatus.SUCCEEDED
+        );
+
+        mockMvc.perform(post("/api/v1/webhooks/payments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.policyId").value(policyId.toString()))
+                .andExpect(jsonPath("$.policyStatus").value("ACTIVE"));
+
+        PolicyEntity reactivatedPolicy = policyRepository.findById(policyId).orElseThrow();
+        assertThat(reactivatedPolicy.getStatus()).isEqualTo(PolicyStatus.ACTIVE.name());
+        assertThat(reactivatedPolicy.getSuspendedAt()).isNull();
     }
 
     @Test

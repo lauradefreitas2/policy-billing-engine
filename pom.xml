@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>br.com.insurtech</groupId>
 	<artifactId>policy-billing-engine</artifactId>
-	<version>1.4.0-SNAPSHOT</version>
+	<version>1.5.0-SNAPSHOT</version>
 	<name>Policy Billing Engine</name>
 	<description>Recurring mobile insurance policy billing engine</description>
 	<url>https://github.com/lauradefreitas2/policy-billing-engine</url>
