@@ -6,7 +6,7 @@ O **Policy Billing Engine** é um serviço backend para uma Insurtech focada em 
 
 O projeto é construído com **Java 21** e **Spring Boot**, seguindo **Arquitetura Hexagonal (Ports & Adapters)**. O domínio permanece independente de Spring, JPA, Quartz, APIs web e ferramentas de observabilidade.
 
-Versão atual do projeto: **1.3.0-SNAPSHOT**.
+Versão atual do projeto: **1.5.0-SNAPSHOT**.
 
 ## Funcionalidades Implementadas
 
@@ -32,6 +32,15 @@ Versão atual do projeto: **1.3.0-SNAPSHOT**.
 - Apólices ativas ou pendentes de pagamento podem ser suspensas por inadimplência a partir de 1 dia de atraso.
 - Apólices suspensas por 10 dias ou mais podem ser canceladas por inadimplência.
 - O cancelamento comum é idempotente para apólices já canceladas.
+
+### Confirmação de Pagamentos
+
+- Webhook `POST /api/v1/webhooks/payments` para receber pagamentos com status `PAID` ou `SUCCEEDED`.
+- Apólices `PENDING_PAYMENT` ou `SUSPENDED` são reativadas e têm `suspended_at` removido.
+- Notificações repetidas para apólices `ACTIVE` são tratadas de forma idempotente.
+- Apólices `CANCELED` não podem ser reativadas e retornam HTTP `422`.
+- O webhook é público para facilitar a demonstração no portfólio e está marcado como tal no OpenAPI.
+- Em produção, a rota deve validar assinatura HMAC ou mecanismo equivalente fornecido pelo gateway de pagamento.
 
 ### Persistência
 
@@ -107,7 +116,7 @@ Versão atual do projeto: **1.3.0-SNAPSHOT**.
   - `/actuator/health`
   - `/actuator/health/**`
 - Demais endpoints do Actuator exigem autenticação.
-- Rotas da API, como `/api/v1/**`, exigem autenticação Bearer JWT.
+- Rotas de negócio exigem autenticação Bearer JWT, exceto o webhook público `/api/v1/webhooks/payments`.
 - Issuer URI configurado para o realm local `policy-realm`.
 
 ### Observabilidade

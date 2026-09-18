@@ -2,16 +2,19 @@ package br.com.insurtech.policybilling.infrastructure.config;
 
 import br.com.insurtech.policybilling.application.port.in.CreatePolicyUseCase;
 import br.com.insurtech.policybilling.application.port.in.CancelOverduePoliciesUseCase;
+import br.com.insurtech.policybilling.application.port.in.ConfirmPaymentUseCase;
 import br.com.insurtech.policybilling.application.port.in.ProcessDailyBillingUseCase;
 import br.com.insurtech.policybilling.application.port.in.SuspendOverduePoliciesUseCase;
 import br.com.insurtech.policybilling.application.port.out.PolicyEventOutboxPort;
 import br.com.insurtech.policybilling.application.port.out.PolicyRepositoryPort;
 import br.com.insurtech.policybilling.application.usecase.CancelOverduePoliciesUseCaseImpl;
 import br.com.insurtech.policybilling.application.usecase.CreatePolicyUseCaseImpl;
+import br.com.insurtech.policybilling.application.usecase.ConfirmPaymentUseCaseImpl;
 import br.com.insurtech.policybilling.application.usecase.ProcessDailyBillingUseCaseImpl;
 import br.com.insurtech.policybilling.application.usecase.SuspendOverduePoliciesUseCaseImpl;
 import br.com.insurtech.policybilling.infrastructure.observability.ObservedCreatePolicyUseCase;
 import br.com.insurtech.policybilling.infrastructure.transaction.TransactionalCancelOverduePoliciesUseCase;
+import br.com.insurtech.policybilling.infrastructure.transaction.TransactionalConfirmPaymentUseCase;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -33,6 +36,12 @@ public class UseCaseConfig {
     @Bean
     public ProcessDailyBillingUseCase processDailyBillingUseCase(PolicyRepositoryPort policyRepositoryPort) {
         return new ProcessDailyBillingUseCaseImpl(policyRepositoryPort);
+    }
+
+    @Bean
+    public ConfirmPaymentUseCase confirmPaymentUseCase(PolicyRepositoryPort policyRepositoryPort) {
+        ConfirmPaymentUseCase useCase = new ConfirmPaymentUseCaseImpl(policyRepositoryPort);
+        return new TransactionalConfirmPaymentUseCase(useCase);
     }
 
     @Bean

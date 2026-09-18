@@ -78,4 +78,13 @@ class SecurityConfigTest {
                         .content("{}"))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    @DisplayName("should allow payment webhook without JWT")
+    void shouldAllowPaymentWebhookWithoutJwt() throws Exception {
+        mockMvc.perform(post("/api/v1/webhooks/payments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
 }

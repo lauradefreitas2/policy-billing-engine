@@ -109,6 +109,7 @@ class PolicyTest {
         policy.confirmPayment();
 
         assertThat(policy.status()).isEqualTo(PolicyStatus.ACTIVE);
+        assertThat(policy.suspendedAt()).isNull();
     }
 
     @Test
@@ -119,6 +120,7 @@ class PolicyTest {
         policy.confirmPayment();
 
         assertThat(policy.status()).isEqualTo(PolicyStatus.ACTIVE);
+        assertThat(policy.suspendedAt()).isNull();
     }
 
     @Test
